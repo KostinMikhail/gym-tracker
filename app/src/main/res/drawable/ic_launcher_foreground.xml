@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Гантель в безопасной зоне адаптивной иконки (66dp из 108dp). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="@color/launcher_foreground"
+        android:pathData="M30,40h8v28h-8z M40,34h8v40h-8z M48,51h12v6h-12z M60,34h8v40h-8z M70,40h8v28h-8z" />
+</vector>

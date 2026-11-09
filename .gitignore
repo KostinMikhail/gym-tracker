@@ -1,0 +1,29 @@
+# Gradle / build
+.gradle/
+.kotlin/
+build/
+**/build/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Local config
+local.properties
+keystore.properties
+
+# Keystores / secrets — NEVER commit
+*.jks
+*.keystore
+*.p12
+*.pem
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Claude local files
+.claude/settings.local.json
