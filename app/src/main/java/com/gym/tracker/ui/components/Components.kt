@@ -53,7 +53,10 @@ import com.gym.tracker.domain.Format
 import com.gym.tracker.ui.theme.FeelColors
 import com.gym.tracker.ui.theme.GymTheme
 
-/** Число с кнопками − / + и вводом с цифровой клавиатуры. */
+/**
+ * Число с кнопками − / + и вводом с цифровой клавиатуры.
+ * [labelAbove] — подпись отдельной строкой над кнопками (для узких диалогов, где сбоку ей не хватает места).
+ */
 @Composable
 fun NumberStepper(
     label: String,
@@ -63,28 +66,55 @@ fun NumberStepper(
     onPlus: () -> Unit,
     decimal: Boolean,
     modifier: Modifier = Modifier,
+    labelAbove: Boolean = false,
 ) {
-    Row(modifier = modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-        FilledTonalIconButton(onClick = onMinus, modifier = Modifier.size(48.dp)) {
-            Icon(Icons.Filled.Remove, contentDescription = "Уменьшить: $label")
+    if (labelAbove) {
+        Column(modifier = modifier.fillMaxWidth()) {
+            Text(label, style = MaterialTheme.typography.bodyLarge)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                StepperControls(label, value, onValueChange, onMinus, onPlus, decimal)
+            }
         }
-        OutlinedTextField(
-            value = value,
-            onValueChange = { input ->
-                val allowed = if (decimal) input.filter { it.isDigit() || it == ',' || it == '.' } else input.filter { it.isDigit() }
-                onValueChange(allowed.take(6))
-            },
-            singleLine = true,
-            textStyle = MaterialTheme.typography.titleLarge.copy(textAlign = TextAlign.Center),
-            keyboardOptions = KeyboardOptions(keyboardType = if (decimal) KeyboardType.Decimal else KeyboardType.Number),
-            modifier = Modifier
-                .padding(horizontal = 8.dp)
-                .width(96.dp),
-        )
-        FilledTonalIconButton(onClick = onPlus, modifier = Modifier.size(48.dp)) {
-            Icon(Icons.Filled.Add, contentDescription = "Увеличить: $label")
+    } else {
+        Row(modifier = modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+            StepperControls(label, value, onValueChange, onMinus, onPlus, decimal)
         }
+    }
+}
+
+@Composable
+private fun StepperControls(
+    label: String,
+    value: String,
+    onValueChange: (String) -> Unit,
+    onMinus: () -> Unit,
+    onPlus: () -> Unit,
+    decimal: Boolean,
+) {
+    // Вызывается внутри Row: элементы размещаются в ряд родителя.
+    FilledTonalIconButton(onClick = onMinus, modifier = Modifier.size(48.dp)) {
+        Icon(Icons.Filled.Remove, contentDescription = "Уменьшить: $label")
+    }
+    OutlinedTextField(
+        value = value,
+        onValueChange = { input ->
+            val allowed = if (decimal) input.filter { it.isDigit() || it == ',' || it == '.' } else input.filter { it.isDigit() }
+            onValueChange(allowed.take(6))
+        },
+        singleLine = true,
+        textStyle = MaterialTheme.typography.titleLarge.copy(textAlign = TextAlign.Center),
+        keyboardOptions = KeyboardOptions(keyboardType = if (decimal) KeyboardType.Decimal else KeyboardType.Number),
+        modifier = Modifier
+            .padding(horizontal = 8.dp)
+            .width(96.dp),
+    )
+    FilledTonalIconButton(onClick = onPlus, modifier = Modifier.size(48.dp)) {
+        Icon(Icons.Filled.Add, contentDescription = "Увеличить: $label")
     }
 }
 
@@ -250,8 +280,8 @@ fun ExerciseDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                NumberStepper("Подходы", sets, { sets = it }, { sets = stepInt(sets, -1) }, { sets = stepInt(sets, 1) }, decimal = false)
-                NumberStepper("Повторы", reps, { reps = it }, { reps = stepInt(reps, -1) }, { reps = stepInt(reps, 1) }, decimal = false)
+                NumberStepper("Подходы", sets, { sets = it }, { sets = stepInt(sets, -1) }, { sets = stepInt(sets, 1) }, decimal = false, labelAbove = true)
+                NumberStepper("Повторы", reps, { reps = it }, { reps = stepInt(reps, -1) }, { reps = stepInt(reps, 1) }, decimal = false, labelAbove = true)
                 val shownError = localError ?: error
                 if (shownError != null) {
                     Text(shownError, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)

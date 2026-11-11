@@ -278,9 +278,9 @@ fun EntryEditDialog(
                         }
                     }
                 }
-                NumberStepper("Подходы", sets, { sets = it }, { sets = stepInt(sets, -1) }, { sets = stepInt(sets, 1) }, decimal = false)
-                NumberStepper("Повторы", reps, { reps = it }, { reps = stepInt(reps, -1) }, { reps = stepInt(reps, 1) }, decimal = false)
-                NumberStepper("Вес (кг)", weight, { weight = it }, { weight = stepWeight(weight, -2.5) }, { weight = stepWeight(weight, 2.5) }, decimal = true)
+                NumberStepper("Подходы", sets, { sets = it }, { sets = stepInt(sets, -1) }, { sets = stepInt(sets, 1) }, decimal = false, labelAbove = true)
+                NumberStepper("Повторы", reps, { reps = it }, { reps = stepInt(reps, -1) }, { reps = stepInt(reps, 1) }, decimal = false, labelAbove = true)
+                NumberStepper("Вес (кг)", weight, { weight = it }, { weight = stepWeight(weight, -2.5) }, { weight = stepWeight(weight, 2.5) }, decimal = true, labelAbove = true)
                 FeelSelector(selected = feel, onSelect = { feel = it })
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             }
