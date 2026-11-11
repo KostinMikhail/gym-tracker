@@ -1,4 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Gym</string>
+
+    <!-- Карточка упражнения: компактные подходы × повторы -->
+    <string name="sets_reps_label">Подходы × повторы</string>
+    <string name="sets_reps_value">%1$s × %2$s</string>
+    <string name="sets_reps_expand">Изменить подходы и повторы: %1$s</string>
+    <string name="sets_reps_collapse">Свернуть подходы и повторы: %1$s</string>
+    <string name="sets_reps_non_default">отличается от обычного</string>
 </resources>

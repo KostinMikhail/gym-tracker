@@ -8,6 +8,7 @@ import com.gym.tracker.data.db.WorkoutSessionEntity
 import com.gym.tracker.data.db.WorkoutTemplateEntity
 import com.gym.tracker.domain.Format
 import com.gym.tracker.domain.Prefill
+import com.gym.tracker.domain.isDefaultSetsReps
 import com.gym.tracker.domain.normalizeName
 import com.gym.tracker.domain.prefillFor
 import com.gym.tracker.domain.roundWeight
@@ -15,7 +16,9 @@ import com.gym.tracker.domain.suggestTemplateId
 import com.gym.tracker.ui.components.stepInt
 import com.gym.tracker.ui.components.stepWeight
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
 
@@ -32,6 +35,26 @@ class WorkoutLogicTest {
     @Test
     fun prefillTakesWeightFromLastEntryButSetsRepsFromExercise() {
         assertEquals(Prefill(4, 10, 42.5), prefillFor(exercise, entry(42.5)))
+    }
+
+    @Test
+    fun setsRepsDefaultDetection() {
+        assertTrue(isDefaultSetsReps("3", "12", 3, 12))
+        assertTrue(isDefaultSetsReps(" 3 ", "12 ", 3, 12))
+        assertFalse(isDefaultSetsReps("3", "40", 3, 12))
+        assertFalse(isDefaultSetsReps("4", "12", 3, 12))
+        assertTrue(isDefaultSetsReps("3", "40", 3, 40))
+        // Пустой или некорректный ввод — не «как обычно», подсвечивается.
+        assertFalse(isDefaultSetsReps("", "12", 3, 12))
+        assertFalse(isDefaultSetsReps("3", "", 3, 12))
+    }
+
+    @Test
+    fun switchingExerciseRePrefillsSetsRepsToItsDefaults() {
+        val crunches = ExerciseEntity("cr", "Скручивания на полу", 3, 40, 0, 0)
+        val p = prefillFor(crunches, null)
+        assertTrue(isDefaultSetsReps(p.sets.toString(), p.reps.toString(), crunches.defaultSets, crunches.defaultReps))
+        assertEquals(3 to 40, p.sets to p.reps)
     }
 
     @Test

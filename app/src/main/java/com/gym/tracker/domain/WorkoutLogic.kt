@@ -17,6 +17,13 @@ fun prefillFor(exercise: ExerciseEntity, lastEntry: SessionEntryEntity?): Prefil
         weightKg = lastEntry?.weightKg ?: 0.0,
     )
 
+/**
+ * Совпадают ли введённые подходы/повторы с настройками упражнения по умолчанию.
+ * Нестандартные значения (и некорректный ввод) подсвечиваются в карточке.
+ */
+fun isDefaultSetsReps(sets: String, reps: String, defaultSets: Int, defaultReps: Int): Boolean =
+    sets.trim().toIntOrNull() == defaultSets && reps.trim().toIntOrNull() == defaultReps
+
 /** Округление веса до 0,5 кг, не меньше 0. */
 fun roundWeight(kg: Double): Double = ((kg * 2).roundToLong() / 2.0).coerceAtLeast(0.0)
 

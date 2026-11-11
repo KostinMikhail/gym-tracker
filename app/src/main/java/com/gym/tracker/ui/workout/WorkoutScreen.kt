@@ -1,6 +1,7 @@
 package com.gym.tracker.ui.workout
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -51,22 +52,28 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.gym.tracker.R
 import com.gym.tracker.data.db.Feel
 import com.gym.tracker.domain.Format
+import com.gym.tracker.domain.isDefaultSetsReps
 import com.gym.tracker.ui.components.ConfirmDialog
 import com.gym.tracker.ui.components.ExerciseDialog
 import com.gym.tracker.ui.components.FeelSelector
 import com.gym.tracker.ui.components.NumberStepper
+import com.gym.tracker.ui.components.SetsRepsPill
 import com.gym.tracker.ui.components.stepInt
 import com.gym.tracker.ui.components.stepWeight
 import com.gym.tracker.ui.theme.FeelColors
+import com.gym.tracker.ui.theme.GymTheme
 import java.time.LocalDate
 
 private const val DAY_MS = 86_400_000L
@@ -259,48 +266,148 @@ private fun OpenSlotCard(card: SlotCardUi, draft: CardDraft, vm: WorkoutViewMode
             )
             Spacer(Modifier.height(8.dp))
 
-            Column(Modifier.padding(end = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Подходы/повторы свёрнуты при каждом открытии карточки (новой или повторно открытой выполненной).
+            var setsRepsExpanded by rememberSaveable { mutableStateOf(false) }
+            val exercise = card.selectedExercise
+            CardInputs(
+                draft = draft,
+                setsRepsIsDefault = exercise == null ||
+                    isDefaultSetsReps(draft.sets, draft.reps, exercise.defaultSets, exercise.defaultReps),
+                setsRepsExpanded = setsRepsExpanded,
+                onToggleSetsReps = { setsRepsExpanded = !setsRepsExpanded },
+                onSetsChange = { vm.onSetsChange(slotId, it) },
+                onRepsChange = { vm.onRepsChange(slotId, it) },
+                onWeightChange = { vm.onWeightChange(slotId, it) },
+                onFeel = { vm.onFeel(slotId, it) },
+                onDone = {
+                    // Сворачиваем, если подходы/повторы корректны; иначе оставляем открытыми, чтобы было видно ошибку.
+                    if ((draft.sets.trim().toIntOrNull() ?: 0) >= 1 && (draft.reps.trim().toIntOrNull() ?: 0) >= 1) {
+                        setsRepsExpanded = false
+                    }
+                    vm.done(slotId)
+                },
+                onCancelEdit = { vm.reopenCancel(slotId) },
+            )
+        }
+    }
+}
+
+/** Поля ввода открытой карточки (без ViewModel — чтобы работали @Preview). */
+@Composable
+private fun CardInputs(
+    draft: CardDraft,
+    setsRepsIsDefault: Boolean,
+    setsRepsExpanded: Boolean,
+    onToggleSetsReps: () -> Unit,
+    onSetsChange: (String) -> Unit,
+    onRepsChange: (String) -> Unit,
+    onWeightChange: (String) -> Unit,
+    onFeel: (Feel) -> Unit,
+    onDone: () -> Unit,
+    onCancelEdit: () -> Unit,
+) {
+    Column(Modifier.padding(end = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                stringResource(R.string.sets_reps_label),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f),
+            )
+            SetsRepsPill(
+                sets = draft.sets,
+                reps = draft.reps,
+                highlighted = !setsRepsIsDefault,
+                expanded = setsRepsExpanded,
+                onClick = onToggleSetsReps,
+            )
+        }
+        AnimatedVisibility(visible = setsRepsExpanded) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 NumberStepper(
                     label = "Подходы",
                     value = draft.sets,
-                    onValueChange = { vm.onSetsChange(slotId, it) },
-                    onMinus = { vm.onSetsChange(slotId, stepInt(draft.sets, -1)) },
-                    onPlus = { vm.onSetsChange(slotId, stepInt(draft.sets, 1)) },
+                    onValueChange = onSetsChange,
+                    onMinus = { onSetsChange(stepInt(draft.sets, -1)) },
+                    onPlus = { onSetsChange(stepInt(draft.sets, 1)) },
                     decimal = false,
                 )
                 NumberStepper(
                     label = "Повторы",
                     value = draft.reps,
-                    onValueChange = { vm.onRepsChange(slotId, it) },
-                    onMinus = { vm.onRepsChange(slotId, stepInt(draft.reps, -1)) },
-                    onPlus = { vm.onRepsChange(slotId, stepInt(draft.reps, 1)) },
+                    onValueChange = onRepsChange,
+                    onMinus = { onRepsChange(stepInt(draft.reps, -1)) },
+                    onPlus = { onRepsChange(stepInt(draft.reps, 1)) },
                     decimal = false,
                 )
-                NumberStepper(
-                    label = "Вес (кг)",
-                    value = draft.weight,
-                    onValueChange = { vm.onWeightChange(slotId, it) },
-                    onMinus = { vm.onWeightChange(slotId, stepWeight(draft.weight, -2.5)) },
-                    onPlus = { vm.onWeightChange(slotId, stepWeight(draft.weight, 2.5)) },
-                    decimal = true,
-                )
-                FeelSelector(selected = draft.feel, onSelect = { vm.onFeel(slotId, it) })
-                if (draft.error != null) {
-                    Text(draft.error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
-                }
-                Button(
-                    onClick = { vm.done(slotId) },
-                    modifier = Modifier.fillMaxWidth().height(52.dp),
-                ) { Text("Готово ✓", style = MaterialTheme.typography.titleMedium) }
-                if (draft.entryId != null) {
-                    OutlinedButton(onClick = { vm.reopenCancel(slotId) }, modifier = Modifier.fillMaxWidth()) {
-                        Text("Отменить изменения")
-                    }
-                }
+            }
+        }
+        NumberStepper(
+            label = "Вес (кг)",
+            value = draft.weight,
+            onValueChange = onWeightChange,
+            onMinus = { onWeightChange(stepWeight(draft.weight, -2.5)) },
+            onPlus = { onWeightChange(stepWeight(draft.weight, 2.5)) },
+            decimal = true,
+        )
+        FeelSelector(selected = draft.feel, onSelect = onFeel)
+        if (draft.error != null) {
+            Text(draft.error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+        }
+        Button(
+            onClick = onDone,
+            modifier = Modifier.fillMaxWidth().height(52.dp),
+        ) { Text("Готово ✓", style = MaterialTheme.typography.titleMedium) }
+        if (draft.entryId != null) {
+            OutlinedButton(onClick = onCancelEdit, modifier = Modifier.fillMaxWidth()) {
+                Text("Отменить изменения")
             }
         }
     }
 }
+
+// ---- Preview карточки (360 dp — узкий экран) ----
+
+private val previewDraft = CardDraft(
+    selectedExerciseId = "ex",
+    sets = "3",
+    reps = "12",
+    weight = "45",
+    feel = null,
+    editing = true,
+    entryId = null,
+)
+
+@Composable
+private fun PreviewCard(draft: CardDraft, isDefault: Boolean, expanded: Boolean) {
+    GymTheme {
+        Card(
+            modifier = Modifier.fillMaxWidth().padding(12.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+        ) {
+            Column(Modifier.padding(start = 16.dp, end = 8.dp, top = 16.dp, bottom = 16.dp)) {
+                CardInputs(draft, isDefault, expanded, {}, {}, {}, {}, {}, {}, {})
+            }
+        }
+    }
+}
+
+@Preview(name = "Свёрнуто, 3 × 12 (обычно)", widthDp = 360, showBackground = true, backgroundColor = 0xFF121316)
+@Composable
+private fun CardCollapsedDefaultPreview() = PreviewCard(previewDraft, isDefault = true, expanded = false)
+
+@Preview(name = "Свёрнуто, 3 × 40 (нестандартно)", widthDp = 360, showBackground = true, backgroundColor = 0xFF121316)
+@Composable
+private fun CardCollapsedNonDefaultPreview() =
+    PreviewCard(previewDraft.copy(reps = "40", weight = "", feel = Feel.NORMAL), isDefault = false, expanded = false)
+
+@Preview(name = "Раскрыто", widthDp = 360, showBackground = true, backgroundColor = 0xFF121316)
+@Composable
+private fun CardExpandedPreview() = PreviewCard(previewDraft.copy(feel = Feel.HARD), isDefault = true, expanded = true)
+
+@Preview(name = "Свёрнуто, 360 dp, шрифт ×1.3", widthDp = 360, fontScale = 1.3f, showBackground = true, backgroundColor = 0xFF121316)
+@Composable
+private fun CardLargeFontPreview() = PreviewCard(previewDraft.copy(feel = Feel.HARD), isDefault = true, expanded = false)
 
 @Composable
 private fun DoneSlotCard(card: SlotCardUi, draft: CardDraft, onClick: () -> Unit) {
