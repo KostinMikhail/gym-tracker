@@ -7,14 +7,19 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Timer
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarDefaults
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -22,6 +27,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -30,6 +42,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.gym.tracker.GymApplication
+import com.gym.tracker.R
 import com.gym.tracker.ui.exercises.ExercisesScreen
 import com.gym.tracker.ui.exercises.ExercisesViewModel
 import com.gym.tracker.ui.history.ExerciseHistoryScreen
@@ -43,6 +57,8 @@ import com.gym.tracker.ui.home.HomeViewModel
 import com.gym.tracker.ui.theme.GymBackground
 import com.gym.tracker.ui.theme.GymThemeId
 import com.gym.tracker.ui.theme.LocalGymTokens
+import com.gym.tracker.ui.timer.TimerScreen
+import com.gym.tracker.ui.timer.TimerViewModel
 import com.gym.tracker.ui.workout.WorkoutScreen
 import com.gym.tracker.ui.workout.WorkoutViewModel
 
@@ -50,6 +66,7 @@ object Routes {
     const val HOME = "home"
     const val HISTORY = "history"
     const val EXERCISES = "exercises"
+    const val TIMER = "timer"
     const val WORKOUT = "workout/{${WorkoutViewModel.ARG_SESSION_ID}}"
     const val SESSION = "session/{${SessionDetailViewModel.ARG_SESSION_ID}}?${SessionDetailViewModel.ARG_SUMMARY}={${SessionDetailViewModel.ARG_SUMMARY}}"
     const val EXERCISE_HISTORY = "exercise/{${ExerciseHistoryViewModel.ARG_EXERCISE_ID}}"
@@ -59,22 +76,38 @@ object Routes {
     fun exerciseHistory(exerciseId: String) = "exercise/$exerciseId"
 }
 
-private data class Tab(val route: String, val label: String, val icon: ImageVector)
+private data class Tab(val route: String, @param:StringRes val label: Int, val icon: ImageVector)
 
 private val tabs = listOf(
-    Tab(Routes.HOME, "Тренировка", Icons.Filled.FitnessCenter),
-    Tab(Routes.HISTORY, "История", Icons.Filled.History),
-    Tab(Routes.EXERCISES, "Упражнения", Icons.AutoMirrored.Filled.List),
+    Tab(Routes.HOME, R.string.tab_workout, Icons.Filled.FitnessCenter),
+    Tab(Routes.HISTORY, R.string.tab_history, Icons.Filled.History),
+    Tab(Routes.EXERCISES, R.string.tab_exercises, Icons.AutoMirrored.Filled.List),
+    Tab(Routes.TIMER, R.string.tab_timer, Icons.Filled.Timer),
 )
 
 @Composable
-fun GymApp(currentTheme: GymThemeId, onThemeSelected: (GymThemeId) -> Unit) {
+fun GymApp(
+    currentTheme: GymThemeId,
+    onThemeSelected: (GymThemeId) -> Unit,
+    timerActive: Boolean = false,
+    openTimerRequests: Int = 0,
+) {
     val nav = rememberNavController()
     val backStack by nav.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
     val onWorkout = currentRoute == Routes.WORKOUT
-    // Нижняя панель: на вкладках — всегда; на экране тренировки — прячется при прокрутке вниз.
-    val showBottomBar = onWorkout || tabs.any { it.route == currentRoute }
+    // Нижняя панель: на вкладках — всегда (кроме идущего таймера); на экране тренировки — прячется при прокрутке вниз.
+    val showBottomBar = onWorkout || (tabs.any { it.route == currentRoute } && !(currentRoute == Routes.TIMER && timerActive))
+    // Нажатие на уведомление таймера открывает вкладку «Таймер».
+    LaunchedEffect(openTimerRequests) {
+        if (openTimerRequests > 0 && nav.currentDestination?.route != Routes.TIMER) nav.switchTab(Routes.TIMER)
+    }
+    // Пока таймер идёт или на паузе, экран не гаснет.
+    val view = LocalView.current
+    DisposableEffect(timerActive) {
+        view.keepScreenOn = timerActive
+        onDispose { view.keepScreenOn = false }
+    }
     var barVisibleOnWorkout by remember { mutableStateOf(true) }
     LaunchedEffect(currentRoute) { barVisibleOnWorkout = true }
     val navStyle = LocalGymTokens.current.nav
@@ -95,7 +128,15 @@ fun GymApp(currentTheme: GymThemeId, onThemeSelected: (GymThemeId) -> Unit) {
                                     if (!(onWorkout && tab.route == Routes.HOME)) nav.switchTab(tab.route)
                                 },
                                 icon = { Icon(tab.icon, contentDescription = null) },
-                                label = { Text(tab.label) },
+                                label = {
+                                    // Четыре вкладки: подпись в одну строку, в широких шрифтах тем — мельче, без переноса.
+                                    Text(
+                                        stringResource(tab.label),
+                                        maxLines = 1,
+                                        softWrap = false,
+                                        autoSize = TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = MaterialTheme.typography.labelMedium.fontSize),
+                                    )
+                                },
                                 colors = if (navStyle != null) {
                                     NavigationBarItemDefaults.colors(
                                         selectedIconColor = navStyle.selectedIcon,
@@ -143,6 +184,15 @@ fun GymApp(currentTheme: GymThemeId, onThemeSelected: (GymThemeId) -> Unit) {
                         vm = gymViewModel { repo, _ -> ExercisesViewModel(repo) },
                         contentPadding = padding,
                         onOpenHistory = { nav.navigate(Routes.exerciseHistory(it)) },
+                    )
+                }
+                composable(Routes.TIMER) {
+                    val app = LocalContext.current.applicationContext as GymApplication
+                    TimerScreen(
+                        vm = viewModel(
+                            factory = viewModelFactory { initializer { TimerViewModel(app.timerController, app.timerPreferences) } },
+                        ),
+                        contentPadding = padding,
                     )
                 }
                 composable(

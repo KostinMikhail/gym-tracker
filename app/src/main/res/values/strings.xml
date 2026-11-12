@@ -28,4 +28,46 @@
     <string name="kicker_workout">Тренировка</string>
     <string name="kicker_history">История</string>
     <string name="kicker_exercises">Упражнения</string>
+
+    <!-- Вкладки -->
+    <string name="tab_workout">Тренировка</string>
+    <string name="tab_history">История</string>
+    <string name="tab_exercises">Упражнения</string>
+    <string name="tab_timer">Таймер</string>
+
+    <!-- Интервальный таймер -->
+    <string name="timer_title">Таймер</string>
+    <string name="timer_rounds">Раунды</string>
+    <string name="timer_round">Раунд</string>
+    <string name="timer_rest">Отдых</string>
+    <string name="timer_no_rest">без отдыха</string>
+    <string name="timer_total">Всего: %1$s</string>
+    <string name="timer_start">СТАРТ</string>
+    <string name="timer_decrease">Уменьшить: %1$s</string>
+    <string name="timer_increase">Увеличить: %1$s</string>
+    <string name="timer_phase_prep">ПРИГОТОВЬСЯ</string>
+    <string name="timer_phase_round">РАУНД</string>
+    <string name="timer_phase_rest">ОТДЫХ</string>
+    <string name="timer_phase_done">ГОТОВО</string>
+    <string name="timer_round_counter">%1$d / %2$d</string>
+    <string name="timer_next_round">далее %1$d / %2$d</string>
+    <string name="timer_pause">ПАУЗА</string>
+    <string name="timer_paused">ПАУЗА</string>
+    <string name="timer_resume">ПРОДОЛЖИТЬ</string>
+    <string name="timer_restart_phase">Раунд заново</string>
+    <string name="timer_reset_all">Сбросить всё</string>
+    <string name="timer_hold_hint">удерживайте</string>
+    <string name="timer_done_rounds">Раундов: %1$d</string>
+    <string name="timer_done_time">Время: %1$s</string>
+    <string name="timer_again">Ещё раз</string>
+    <string name="timer_settings">Настройки</string>
+    <string name="timer_stop_title">Остановить таймер?</string>
+    <string name="timer_stop_text">Отсчёт сбросится, настройки сохранятся.</string>
+    <string name="timer_stop">Остановить</string>
+    <string name="timer_continue">Продолжить</string>
+    <string name="timer_channel">Интервальный таймер</string>
+    <string name="timer_notification_round">Раунд %1$d / %2$d</string>
+    <string name="timer_notification_rest">Отдых · далее %1$d / %2$d</string>
+    <string name="timer_notification_paused">Пауза · %1$s</string>
+    <string name="timer_notification_remaining">Осталось %1$s</string>
 </resources>

@@ -116,6 +116,45 @@ data class ThemeButtonStyle(
     val glow: Glow? = null,
 )
 
+/**
+ * Вид экрана таймера в одном из состояний (работа / последние 10 секунд / отдых).
+ * Предупреждение обязано менять фон или крупную область (рамку), а не только цвет цифр.
+ */
+@Immutable
+data class TimerPhaseStyle(
+    /** Фон всего экрана; null — фон страницы темы. */
+    val background: Color?,
+    val digits: Color,
+    /** Мелкий текст (фаза, счётчик раундов). */
+    val text: Color,
+    /** Дорожка полосы прогресса (заполнение — цветом цифр). */
+    val track: Color,
+    /** Крупные кнопки «ПАУЗА» / «ПРОДОЛЖИТЬ». */
+    val button: Color,
+    val onButton: Color,
+    val digitGlow: Color? = null,
+    /** Контур цифр — когда цвет цифр по палитре темы недостаточно контрастен фону. */
+    val digitOutline: Color? = null,
+    /** Толстая рамка по краю экрана. */
+    val frame: Color? = null,
+    val frameGlow: Boolean = false,
+    /** Крупные уголки-скобки по углам экрана. */
+    val brackets: Color? = null,
+    /** Полосы дизеринга сверху и снизу. */
+    val ditherBand: Dither? = null,
+    /** Мягкая пульсация рамки/свечения. */
+    val pulse: Boolean = false,
+)
+
+@Immutable
+data class TimerStyle(
+    val work: TimerPhaseStyle,
+    val warning: TimerPhaseStyle,
+    val rest: TimerPhaseStyle,
+    /** Шрифт больших цифр (ширина знакомест выравнивается кодом — цифры не «прыгают»). */
+    val digits: TextStyle,
+)
+
 enum class BackgroundDecor { NONE, PIXEL_GRID, SYNTHWAVE, FAINT_GRID, CORNER_STRIPES }
 
 enum class HeaderDecor { NONE, DITHER_BAND, GLOW_LINE, HAZARD_BAND, HUD_STRIP }
@@ -162,6 +201,8 @@ data class GymTokens(
     val kicker: Boolean,
     /** Цвета подписей самочувствия прямо на странице (вне карточек); null — как на карточке. */
     val feelOnPage: Map<Feel, Color>? = null,
+    /** Экран интервального таймера. */
+    val timer: TimerStyle,
 ) {
     fun feel(f: Feel): FeelStyle = feel.getValue(f)
 }

@@ -29,11 +29,13 @@ Single-activity, Jetpack Compose + Material 3, Navigation Compose (строко�
 
 ```
 com.gym.tracker
-├── GymApplication        — ручной DI: GymDatabase + GymRepository + ThemePreferences (lazy)
-├── MainActivity          — читает тему до первого кадра, системные панели по теме, GymTheme(themeId) { GymApp() }
+├── GymApplication        — ручной DI: GymDatabase + GymRepository + один DataStore «settings» (ThemePreferences, TimerPreferences) + TimerController (lazy)
+├── MainActivity          — читает тему до первого кадра, системные панели по теме, GymTheme(themeId) { GymApp() };
+│                           EXTRA_OPEN_TIMER из уведомления таймера → вкладка «Таймер». Только портретная ориентация.
 ├── data
 │   ├── GymRepository     — единственная точка доступа UI к данным (транзакции, бизнес-правила записи)
 │   ├── ThemePreferences  — выбранная тема в DataStore (Preferences), не в Room
+│   ├── TimerPreferences  — последние настройки таймера (раунды/раунд/отдых) и флаг «разрешение уведомлений спрашивали»
 │   └── db
 │       ├── Entities.kt   — сущности + enum Feel
 │       ├── Projections.kt— POJO для JOIN-запросов
@@ -43,9 +45,14 @@ com.gym.tracker
 │       └── GymDatabase.kt— Room DB (version 1), MIGRATIONS, SeedCallback (onCreate)
 ├── domain
 │   ├── WorkoutLogic.kt   — prefillFor, roundWeight, normalizeName, suggestTemplateId
-│   └── Format.kt         — даты dd.MM / dd.MM.yyyy, вес («без веса» для 0), «3×12 · 45 кг · Норм»
+│   ├── Format.kt         — даты dd.MM / dd.MM.yyyy, вес («без веса» для 0), «3×12 · 45 кг · Норм»
+│   └── timer/            — IntervalTimer (чистая машина состояний таймера, часы внедряются), TimerConfig, TimerFormat
+├── timer
+│   ├── TimerController   — один таймер на процесс: StateFlow<TimerSnapshot?> (null = настройки) + поток сигналов; цикл в MainScope
+│   ├── TimerService      — foreground-сервис (specialUse): уведомление с Пауза/Продолжить, wake lock, звук; стоп при сбросе/после «Готово»
+│   └── TimerSoundPlayer  — SoundPool (res/raw/timer_*.wav), фокус GAIN_TRANSIENT_MAY_DUCK, вибрация
 └── ui
-    ├── GymApp.kt         — NavHost, Routes, нижняя навигация (Тренировка / История / Упражнения)
+    ├── GymApp.kt         — NavHost, Routes, нижняя навигация (Тренировка / История / Упражнения / Таймер)
     ├── ViewModels.kt     — gymViewModel { repo, savedStateHandle -> VM }
     ├── theme/            — система тем: GymThemeId, GymTokens (+LocalGymTokens), Themes.kt (7 тем), Fonts.kt,
     │                       Effects.kt (свечение, жёсткая тень, пунктир, уголки, дизеринг), Decor.kt (фон, декор шапки, ScreenTitle)
@@ -54,7 +61,8 @@ com.gym.tracker
     │                       ThemePicker.kt — нижний лист «Тема оформления»
     ├── workout/          — WorkoutScreen/WorkoutViewModel: карточки слотов, черновики в SavedStateHandle
     ├── history/          — HistoryScreen (по датам / по упражнениям), SessionDetailScreen (+ итоги), ExerciseHistoryScreen (график Canvas + таблица + рекорд)
-    └── exercises/        — ExercisesScreen: список, редактирование названия/подходов/повторов
+    ├── exercises/        — ExercisesScreen: список, редактирование названия/подходов/повторов
+    └── timer/            — TimerScreen (настройки / ход / пауза / «Готово»), TimerViewModel, TabularText (цифры в ячейках фикс. ширины)
 ```
 
 ### Сущности (все id — String UUID; у пользовательских данных `createdAt`/`updatedAt` в epoch millis — задел под будущую синхронизацию)
@@ -68,7 +76,7 @@ com.gym.tracker
 
 ### Навигация
 
-`home`, `history`, `exercises` (вкладки) → `workout/{sessionId}`, `session/{sessionId}?summary={bool}`, `exercise/{exerciseId}`.
+`home`, `history`, `exercises`, `timer` (вкладки) → `workout/{sessionId}`, `session/{sessionId}?summary={bool}`, `exercise/{exerciseId}`.
 Тренировка создаётся при старте (строка в `workout_sessions`), каждая «Готово» сразу пишет `session_entries`. «Продолжить тренировку» нет. «Завершить» → `finishedAt` и экран итогов; пустую тренировку предлагается удалить.
 
 ### Ключевые правила поведения
@@ -78,6 +86,7 @@ com.gym.tracker
 - Звёздочка делает вариант избранным для слота (сохраняется сразу, влияет на будущие тренировки) и выбирает его.
 - Добавление варианта в слот переиспользует существующее упражнение с тем же названием (без учёта регистра/пробелов).
 - Редактор шаблонов/слотов пока не реализован (отдельная задача).
+- Таймер: подготовка 5 с → раунд (1 гонг) → «10 секунд» (3 стука + предупреждение, только если раунд > 10 с) → отдых (2 гонга; при отдыхе 0 — сразу 1 гонг) → … → 3 гонга и «Готово». Время — только по дедлайнам SystemClock.elapsedRealtime (следующая фаза от дедлайна предыдущей, без дрейфа). Пока таймер идёт/на паузе: нижней панели нет, Back → «Остановить таймер?», экран не гаснет. «Сбросить всё» — только долгим нажатием. Смерть процесса = таймер сброшен (настройки в DataStore). Звуки синтезирует `tools/gen_timer_sounds.py` (без записей).
 - Экран тренировки: шапка уезжает при прокрутке вниз (enterAlways) и возвращается при прокрутке вверх; полоса «Фулбади Б · N / M» закреплена; нижняя панель навигации видна и на тренировке и прячется при прокрутке вниз (только там). Вкладка «Тренировка» на этом экране — текущая.
 
 ### Темы
@@ -89,10 +98,12 @@ com.gym.tracker
 - Шрифты — в `res/font` (офлайн), лицензии OFL — в `licenses/`. В Pixelify Sans добавлены cmap-записи для «О» и «П».
 - Контраст WCAG для всех тем проверяет `ThemeContrastTest` — при изменении цветов тест должен проходить.
 - Экраны прозрачные (`containerColor = Transparent`), фон и декор рисует `GymBackground` один раз на весь экран.
+- Таймер: `GymTokens.timer` — `TimerPhaseStyle` для работы / предупреждения / отдыха (фон экрана, цифры, рамка, уголки, полоса дизеринга, пульсация) и шрифт цифр. Предупреждение обязано менять фон или крупную рамку и отличаться по яркости — проверяет `TimerThemeTest`.
 
 ### Тесты (`app/src/test`, JVM + Robolectric, запускаются `testDebugUnitTest`)
 
 - `SeedDataTest`, `WorkoutLogicTest` — чистая логика.
 - `data/RepositoryTest` — DAO и репозиторий на in-memory Room с сидом.
 - `data/ThemePreferencesTest` — сохранение темы и откат к Классической; `ThemeContrastTest` — контраст всех тем; `ProgressTest` — счётчик «N / M» и дата шапки.
+- `IntervalTimerTest` (последовательность, 10 с, отдых 0, 1 раунд, пауза, «Раунд заново», без дрейфа за 60 мин), `TimerControllerTest` (виртуальное время), `TimerThemeTest` (контраст и различимость состояний таймера), `data/TimerPreferencesTest`.
 - `data/MigrationTest` — `MigrationTestHelper` по схемам из `app/schemas` (подключены как debug-assets). Путь к тестовой БД абсолютный — иначе Room на Windows падает.
