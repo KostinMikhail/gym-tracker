@@ -60,9 +60,6 @@ data class TimerSnapshot(
 ) {
     /** Оставшиеся целые секунды (округление вверх: 3:00 в начале, 0:01 в последнюю секунду). */
     val remainingSec: Long get() = (remainingMs + 999) / 1000
-
-    /** Доля прошедшего времени фазы, 0..1. */
-    val progress: Float get() = if (phaseMs <= 0) 1f else (1f - remainingMs.toFloat() / phaseMs).coerceIn(0f, 1f)
 }
 
 /**

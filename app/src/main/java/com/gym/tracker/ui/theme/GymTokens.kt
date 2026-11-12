@@ -127,14 +127,10 @@ data class TimerPhaseStyle(
     val digits: Color,
     /** Мелкий текст (фаза, счётчик раундов). */
     val text: Color,
-    /** Дорожка полосы прогресса (заполнение — цветом цифр). */
-    val track: Color,
     /** Крупные кнопки «ПАУЗА» / «ПРОДОЛЖИТЬ». */
     val button: Color,
     val onButton: Color,
     val digitGlow: Color? = null,
-    /** Контур цифр — когда цвет цифр по палитре темы недостаточно контрастен фону. */
-    val digitOutline: Color? = null,
     /** Толстая рамка по краю экрана. */
     val frame: Color? = null,
     val frameGlow: Boolean = false,

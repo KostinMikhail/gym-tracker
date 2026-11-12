@@ -122,7 +122,7 @@ class TimerSoundPlayer(context: Context) {
 
         /** Три стука с интервалом ~0,35 с. */
         val KNOCKS_3 = listOf(0L, 350L, 700L)
-        const val BELL_TAIL_MS = 1_600L
+        const val BELL_TAIL_MS = 2_100L
         const val KNOCK_TAIL_MS = 250L
         const val BELL_VIBRATION_MS = 250L
         const val KNOCK_VIBRATION_MS = 70L

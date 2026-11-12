@@ -32,8 +32,7 @@ class TimerThemeTest {
             val states = mapOf("работа" to ts.work, "10 секунд" to ts.warning, "отдых" to ts.rest)
             states.forEach { (name, s) ->
                 val bg = s.background ?: t.background
-                // Цифры с контуром читаются по контуру.
-                check(id, "$name: цифры", contrast(s.digitOutline ?: s.digits, bg), 3.0)
+                check(id, "$name: цифры", contrast(s.digits, bg), 3.0)
                 check(id, "$name: текст", contrast(s.text, bg), 4.5)
                 check(id, "$name: подпись кнопки", contrast(s.onButton, s.button.compositeOver(bg)), 4.5)
                 check(id, "$name: кнопка на фоне", contrast(s.button, bg), 3.0)

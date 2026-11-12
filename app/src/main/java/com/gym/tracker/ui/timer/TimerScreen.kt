@@ -12,10 +12,9 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
@@ -51,18 +50,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
-import androidx.compose.ui.graphics.StrokeJoin
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -88,7 +83,6 @@ import com.gym.tracker.domain.timer.TimerConfig
 import com.gym.tracker.domain.timer.TimerFormat
 import com.gym.tracker.domain.timer.TimerPhase
 import com.gym.tracker.domain.timer.TimerSnapshot
-import com.gym.tracker.ui.components.ConfirmDialog
 import com.gym.tracker.ui.components.GymCard
 import com.gym.tracker.ui.theme.GymBackground
 import com.gym.tracker.ui.theme.GymTheme
@@ -111,12 +105,11 @@ import java.time.LocalDate
 import com.gym.tracker.domain.Format
 
 @Composable
-fun TimerScreen(vm: TimerViewModel, contentPadding: PaddingValues) {
+fun TimerScreen(vm: TimerViewModel, contentPadding: PaddingValues, onExit: () -> Unit) {
     val timer by vm.timer.collectAsStateWithLifecycle()
     val config by vm.config.collectAsStateWithLifecycle()
     val notificationsAsked by vm.notificationsAsked.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    var confirmStop by rememberSaveable { mutableStateOf(false) }
 
     // Разрешение на уведомления (Android 13+) — один раз, при первом «СТАРТ». Отказ не мешает таймеру.
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { vm.start() }
@@ -131,20 +124,10 @@ fun TimerScreen(vm: TimerViewModel, contentPadding: PaddingValues) {
         }
     }
 
-    val active = timer.isActive()
-    BackHandler(enabled = active) { confirmStop = true }
-    if (confirmStop && active) {
-        ConfirmDialog(
-            title = stringResource(R.string.timer_stop_title),
-            text = stringResource(R.string.timer_stop_text),
-            confirmLabel = stringResource(R.string.timer_stop),
-            dismissLabel = stringResource(R.string.timer_continue),
-            onConfirm = {
-                confirmStop = false
-                vm.reset()
-            },
-            onDismiss = { confirmStop = false },
-        )
+    // «Назад» во время таймера — остановить и выйти, без вопросов.
+    BackHandler(enabled = timer.isActive()) {
+        vm.reset()
+        onExit()
     }
 
     val s = timer
@@ -340,30 +323,28 @@ fun TimerRunning(
 ) {
     val t = LocalGymTokens.current
     val style = phaseStyle(s)
-    val labelStyle = t.timer.digits.copy(fontSize = 34.sp, letterSpacing = 3.sp)
+    val labelStyle = t.timer.digits.copy(fontSize = 40.sp, letterSpacing = 3.sp)
     TimerStage(style, contentPadding) {
         if (style.ditherBand != null) {
             Box(Modifier.fillMaxWidth().height(16.dp).ditherFill(style.ditherBand, style.digits))
             Spacer(Modifier.height(12.dp))
         }
+        // Фаза и номер раунда — одной строкой наверху.
+        val rounds = s.config.rounds
         Text(
-            stringResource(
-                when (s.phase) {
-                    TimerPhase.PREP -> R.string.timer_phase_prep
-                    TimerPhase.ROUND -> R.string.timer_phase_round
-                    TimerPhase.REST -> R.string.timer_phase_rest
-                    TimerPhase.DONE -> R.string.timer_phase_done
-                },
-            ),
+            when (s.phase) {
+                TimerPhase.PREP -> stringResource(R.string.timer_phase_prep)
+                TimerPhase.ROUND -> stringResource(R.string.timer_header_round, s.round, rounds)
+                TimerPhase.REST -> stringResource(R.string.timer_header_rest, s.round + 1, rounds)
+                TimerPhase.DONE -> stringResource(R.string.timer_phase_done)
+            },
             style = labelStyle,
             color = style.text,
             textAlign = TextAlign.Center,
             maxLines = 1,
-            autoSize = TextAutoSize.StepBased(minFontSize = 18.sp, maxFontSize = 34.sp),
+            autoSize = TextAutoSize.StepBased(minFontSize = 16.sp, maxFontSize = 40.sp),
             modifier = Modifier.fillMaxWidth(),
         )
-        Spacer(Modifier.height(16.dp))
-        PhaseProgress(s.progress, style)
         Column(
             Modifier.weight(1f).fillMaxWidth(),
             verticalArrangement = Arrangement.Center,
@@ -379,22 +360,6 @@ fun TimerRunning(
                 style = t.timer.digits,
                 color = style.digits,
                 glow = style.digitGlow,
-                outline = style.digitOutline,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            val rounds = s.config.rounds
-            val counter = when (s.phase) {
-                TimerPhase.ROUND -> stringResource(R.string.timer_round_counter, s.round, rounds)
-                TimerPhase.PREP -> stringResource(R.string.timer_next_round, 1, rounds)
-                else -> stringResource(R.string.timer_next_round, s.round + 1, rounds)
-            }
-            Text(
-                counter,
-                style = t.timer.digits.copy(fontSize = 44.sp),
-                color = style.text,
-                textAlign = TextAlign.Center,
-                maxLines = 1,
-                autoSize = TextAutoSize.StepBased(minFontSize = 20.sp, maxFontSize = 44.sp),
                 modifier = Modifier.fillMaxWidth(),
             )
         }
@@ -407,18 +372,14 @@ fun TimerRunning(
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 SecondaryButton(
                     stringResource(R.string.timer_restart_phase),
-                    hint = null,
                     color = style.text,
                     onClick = onRestart,
-                    onLongClick = null,
                     modifier = Modifier.weight(1f),
                 )
                 SecondaryButton(
                     stringResource(R.string.timer_reset_all),
-                    hint = stringResource(R.string.timer_hold_hint),
                     color = style.text,
-                    onClick = null,
-                    onLongClick = onReset,
+                    onClick = onReset,
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -467,19 +428,6 @@ private fun TimerStage(style: TimerPhaseStyle, contentPadding: PaddingValues, co
     }
 }
 
-@Composable
-private fun PhaseProgress(progress: Float, style: TimerPhaseStyle) {
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .height(8.dp)
-            .drawBehind {
-                drawRect(style.track)
-                drawRect(style.digits, size = Size(size.width * progress, size.height))
-            },
-    )
-}
-
 /** Мягкое мигание (надпись «ПАУЗА»). */
 @Composable
 private fun Blinking(content: @Composable () -> Unit) {
@@ -515,7 +463,7 @@ private fun Pulsing(enabled: Boolean, content: @Composable (Float) -> Unit) {
  * Размер шрифта подбирается по ширине/высоте места один раз (по шаблону «00:00»).
  */
 @Composable
-fun TabularText(text: String, style: TextStyle, color: Color, glow: Color?, modifier: Modifier = Modifier, outline: Color? = null) {
+fun TabularText(text: String, style: TextStyle, color: Color, glow: Color?, modifier: Modifier = Modifier) {
     val measurer = rememberTextMeasurer()
     val density = LocalDensity.current
     BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
@@ -538,16 +486,6 @@ fun TabularText(text: String, style: TextStyle, color: Color, glow: Color?, modi
             text.forEach { ch ->
                 val w: Dp = with(density) { ((if (ch.isDigit()) digitW else colonW) * scale).toDp() }
                 Box(Modifier.width(w), contentAlignment = Alignment.Center) {
-                    if (outline != null) {
-                        // Контур под заливкой: снаружи цифры видна половина обводки.
-                        val strokePx = with(density) { fontSize.toPx() * 0.035f }
-                        Text(
-                            ch.toString(),
-                            style = sized.copy(color = outline, shadow = null, drawStyle = Stroke(width = strokePx, join = StrokeJoin.Round)),
-                            maxLines = 1,
-                            softWrap = false,
-                        )
-                    }
                     Text(ch.toString(), style = sized, maxLines = 1, softWrap = false)
                 }
             }
@@ -588,15 +526,12 @@ private fun TimerBigButton(
     }
 }
 
-/** Вторичная кнопка на паузе; [onLongClick] — действие только по удержанию (с подсказкой [hint]). */
-@OptIn(ExperimentalFoundationApi::class)
+/** Вторичная кнопка (на паузе, на экране «Готово»). */
 @Composable
 private fun SecondaryButton(
     text: String,
-    hint: String?,
     color: Color,
-    onClick: (() -> Unit)?,
-    onLongClick: (() -> Unit)?,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val shape = LocalGymTokens.current.buttonShape ?: RoundedCornerShape(16.dp)
@@ -605,7 +540,7 @@ private fun SecondaryButton(
             .height(72.dp)
             .clip(shape)
             .border(2.dp, color, shape)
-            .combinedClickable(onClick = { onClick?.invoke() }, onLongClick = onLongClick)
+            .clickable(onClick = onClick)
             .padding(horizontal = 8.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -617,9 +552,6 @@ private fun SecondaryButton(
             maxLines = 1,
             autoSize = TextAutoSize.StepBased(minFontSize = 11.sp, maxFontSize = 17.sp),
         )
-        if (hint != null) {
-            Text(hint, style = MaterialTheme.typography.bodySmall, color = color)
-        }
     }
 }
 
@@ -661,10 +593,8 @@ fun TimerDone(s: TimerSnapshot, contentPadding: PaddingValues, onAgain: () -> Un
         Spacer(Modifier.height(12.dp))
         SecondaryButton(
             stringResource(R.string.timer_settings),
-            hint = null,
             color = style.text,
             onClick = onSettings,
-            onLongClick = null,
             modifier = Modifier.fillMaxWidth(),
         )
     }

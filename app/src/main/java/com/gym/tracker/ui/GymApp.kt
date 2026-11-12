@@ -193,6 +193,7 @@ fun GymApp(
                             factory = viewModelFactory { initializer { TimerViewModel(app.timerController, app.timerPreferences) } },
                         ),
                         contentPadding = padding,
+                        onExit = { nav.popBackStack() },
                     )
                 }
                 composable(

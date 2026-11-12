@@ -136,16 +136,16 @@ object ClassicTheme {
             kicker = false,
             timer = TimerStyle(
                 work = TimerPhaseStyle(
-                    background = null, digits = scheme.primary, text = scheme.onSurface, track = scheme.outlineVariant,
+                    background = null, digits = scheme.primary, text = scheme.onSurface,
                     button = scheme.primary, onButton = scheme.onPrimary,
                 ),
                 // Янтарный фон на весь экран — заметно боковым зрением.
                 warning = TimerPhaseStyle(
                     background = Color(0xFFFF8F00), digits = Color(0xFF1A0E00), text = Color(0xFF1A0E00),
-                    track = Color(0x401A0E00), button = Color(0xFF1A0E00), onButton = Color(0xFFFFB74D),
+                    button = Color(0xFF1A0E00), onButton = Color(0xFFFFB74D),
                 ),
                 rest = TimerPhaseStyle(
-                    background = null, digits = scheme.secondary, text = scheme.onSurfaceVariant, track = scheme.outlineVariant,
+                    background = null, digits = scheme.secondary, text = scheme.onSurfaceVariant,
                     button = scheme.secondary, onButton = scheme.onSecondary,
                 ),
                 digits = TextStyle(fontWeight = FontWeight.Bold, fontFeatureSettings = "tnum"),
@@ -225,11 +225,11 @@ object Dither1BitTheme {
             scanlines = null,
             kicker = false,
             timer = TimerStyle(
-                work = TimerPhaseStyle(background = null, digits = ink, text = ink, track = Color(0xFF3A3A3A), button = ink, onButton = black),
+                work = TimerPhaseStyle(background = null, digits = ink, text = ink, button = ink, onButton = black),
                 // Инверсия: белый экран, чёрные цифры.
-                warning = TimerPhaseStyle(background = ink, digits = black, text = black, track = dashed, button = black, onButton = ink),
+                warning = TimerPhaseStyle(background = ink, digits = black, text = black, button = black, onButton = ink),
                 rest = TimerPhaseStyle(
-                    background = null, digits = secondary, text = secondary, track = Color(0xFF3A3A3A),
+                    background = null, digits = secondary, text = secondary,
                     button = secondary, onButton = black, ditherBand = Dither.DOTS,
                 ),
                 digits = TextStyle(fontFamily = mono, fontWeight = FontWeight.Bold),
@@ -305,15 +305,13 @@ object GameBoyTheme {
             scanlines = null,
             kicker = false,
             timer = TimerStyle(
-                work = TimerPhaseStyle(background = light, digits = dark, text = dark, track = mid, button = dark, onButton = light),
+                work = TimerPhaseStyle(background = light, digits = dark, text = dark, button = dark, onButton = light),
                 // Инверсия: тёмный экран, светлые цифры.
-                warning = TimerPhaseStyle(background = dark, digits = light, text = light, track = mid, button = light, onButton = dark),
-                // #306230 на #8BAC0F — 2,75:1; тёмный контур делает край цифр контрастным (≥ 3:1).
-                rest = TimerPhaseStyle(
-                    background = cardBg, digits = mid, text = dark, track = Color(0x66306230), button = dark, onButton = cardBg,
-                    digitOutline = dark,
-                ),
-                digits = TextStyle(fontFamily = mono, fontWeight = FontWeight.ExtraBold),
+                warning = TimerPhaseStyle(background = dark, digits = light, text = light, button = light, onButton = dark),
+                // Цифры — самым тёмным цветом палитры.
+                rest = TimerPhaseStyle(background = cardBg, digits = dark, text = dark, button = dark, onButton = cardBg, ditherBand = Dither.DOTS),
+                // IBM Plex Mono Bold, набор ss04 — ноль без точки в центре (как «O»).
+                digits = TextStyle(fontFamily = GymFonts.ibmPlexMono, fontWeight = FontWeight.Bold, fontFeatureSettings = "ss04"),
             ),
         ),
     )
@@ -395,15 +393,15 @@ object SynthwaveTheme {
             kicker = false,
             timer = TimerStyle(
                 work = TimerPhaseStyle(
-                    background = null, digits = cyan, text = text, track = Color(0xFF3A2A5C),
+                    background = null, digits = cyan, text = text,
                     button = cyan, onButton = bg, digitGlow = cyan,
                 ),
                 warning = TimerPhaseStyle(
-                    background = null, digits = magenta, text = text, track = Color(0xFF3A2A5C),
+                    background = null, digits = magenta, text = text,
                     button = magenta, onButton = onMagenta, digitGlow = magenta, frame = magenta, frameGlow = true, pulse = true,
                 ),
                 rest = TimerPhaseStyle(
-                    background = null, digits = secondary, text = secondary, track = Color(0xFF3A2A5C),
+                    background = null, digits = secondary, text = secondary,
                     button = secondary, onButton = bg,
                 ),
                 digits = TextStyle(fontFamily = GymFonts.unbounded, fontWeight = FontWeight.SemiBold),
@@ -485,16 +483,16 @@ object AcidTheme {
             kicker = false,
             timer = TimerStyle(
                 work = TimerPhaseStyle(
-                    background = null, digits = lime, text = text, track = Color(0xFF2A2A2A),
+                    background = null, digits = lime, text = text,
                     button = lime, onButton = black, digitGlow = lime,
                 ),
                 warning = TimerPhaseStyle(
-                    background = null, digits = Color(0xFFFF7A45), text = text, track = Color(0xFF2A2A2A),
+                    background = null, digits = Color(0xFFFF7A45), text = text,
                     button = Color(0xFFFF7A45), onButton = black, digitGlow = Color(0xFFFF7A45),
                     frame = Color(0xFFFF7A45), frameGlow = true,
                 ),
                 rest = TimerPhaseStyle(
-                    background = null, digits = violet, text = violet, track = Color(0xFF2A2A2A),
+                    background = null, digits = violet, text = violet,
                     button = violet, onButton = black,
                 ),
                 digits = TextStyle(fontFamily = GymFonts.russoOne),
@@ -594,9 +592,9 @@ object CyberYellowTheme {
             kicker = true,
             feelOnPage = mapOf(Feel.EASY to Color(0xFF005F6B), Feel.NORMAL to black, Feel.HARD to Color(0xFFA0002E)),
             timer = TimerStyle(
-                work = TimerPhaseStyle(background = yellow, digits = black, text = black, track = Color(0x400A0A0B), button = black, onButton = yellow),
-                warning = TimerPhaseStyle(background = red, digits = black, text = black, track = Color(0x400A0A0B), button = black, onButton = red),
-                rest = TimerPhaseStyle(background = black, digits = cyan, text = cardText, track = Color(0xFF2A2A22), button = cyan, onButton = black),
+                work = TimerPhaseStyle(background = yellow, digits = black, text = black, button = black, onButton = yellow),
+                warning = TimerPhaseStyle(background = red, digits = black, text = black, button = black, onButton = red),
+                rest = TimerPhaseStyle(background = black, digits = cyan, text = cardText, button = cyan, onButton = black),
                 digits = TextStyle(fontFamily = GymFonts.rubikMonoOne),
             ),
         ),
@@ -672,12 +670,12 @@ object CyberHudTheme {
             scanlines = teal.copy(alpha = 0.05f),
             kicker = false,
             timer = TimerStyle(
-                work = TimerPhaseStyle(background = null, digits = teal, text = text, track = teal.copy(alpha = 0.18f), button = teal, onButton = dark),
+                work = TimerPhaseStyle(background = null, digits = teal, text = text, button = teal, onButton = dark),
                 warning = TimerPhaseStyle(
-                    background = null, digits = red, text = text, track = red.copy(alpha = 0.25f),
+                    background = null, digits = red, text = text,
                     button = red, onButton = Color(0xFF140404), brackets = red,
                 ),
-                rest = TimerPhaseStyle(background = null, digits = secondary, text = secondary, track = teal.copy(alpha = 0.18f), button = secondary, onButton = dark),
+                rest = TimerPhaseStyle(background = null, digits = secondary, text = secondary, button = secondary, onButton = dark),
                 digits = TextStyle(fontFamily = GymFonts.oswald, fontWeight = FontWeight.SemiBold),
             ),
         ),
