@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material.icons.Icons
@@ -22,11 +21,11 @@ import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -37,7 +36,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -50,7 +53,13 @@ import androidx.compose.ui.unit.sp
 import com.gym.tracker.R
 import com.gym.tracker.data.db.Feel
 import com.gym.tracker.domain.Format
-import com.gym.tracker.ui.theme.FeelColors
+import com.gym.tracker.ui.theme.Dither
+import com.gym.tracker.ui.theme.DitherSwatch
+import com.gym.tracker.ui.theme.LocalGymTokens
+import com.gym.tracker.ui.theme.LocalOnCard
+import com.gym.tracker.ui.theme.WeightDecor
+import com.gym.tracker.ui.theme.dashedBorder
+import com.gym.tracker.ui.theme.neonGlow
 import com.gym.tracker.ui.theme.GymTheme
 
 /**
@@ -67,6 +76,7 @@ fun NumberStepper(
     decimal: Boolean,
     modifier: Modifier = Modifier,
     labelAbove: Boolean = false,
+    emphasized: Boolean = false,
 ) {
     if (labelAbove) {
         Column(modifier = modifier.fillMaxWidth()) {
@@ -76,13 +86,13 @@ fun NumberStepper(
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                StepperControls(label, value, onValueChange, onMinus, onPlus, decimal)
+                StepperControls(label, value, onValueChange, onMinus, onPlus, decimal, emphasized)
             }
         }
     } else {
         Row(modifier = modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-            StepperControls(label, value, onValueChange, onMinus, onPlus, decimal)
+            StepperControls(label, value, onValueChange, onMinus, onPlus, decimal, emphasized)
         }
     }
 }
@@ -95,11 +105,16 @@ private fun StepperControls(
     onMinus: () -> Unit,
     onPlus: () -> Unit,
     decimal: Boolean,
+    emphasized: Boolean,
 ) {
     // Вызывается внутри Row: элементы размещаются в ряд родителя.
-    FilledTonalIconButton(onClick = onMinus, modifier = Modifier.size(48.dp)) {
-        Icon(Icons.Filled.Remove, contentDescription = "Уменьшить: $label")
-    }
+    val weight = LocalGymTokens.current.weight
+    // Главное поле (вес) в темах может иметь свой шрифт/цвет и украшения вместо рамки.
+    val themed = emphasized && weight.textStyle != null
+    val decorated = themed && weight.decor != WeightDecor.NONE
+    var textStyle = MaterialTheme.typography.titleLarge.copy(textAlign = TextAlign.Center)
+    if (themed) textStyle = weight.textStyle.copy(textAlign = TextAlign.Center, color = weight.color ?: Color.Unspecified)
+    StepperButton(Icons.Filled.Remove, "Уменьшить: $label", onMinus)
     OutlinedTextField(
         value = value,
         onValueChange = { input ->
@@ -107,14 +122,34 @@ private fun StepperControls(
             onValueChange(allowed.take(6))
         },
         singleLine = true,
-        textStyle = MaterialTheme.typography.titleLarge.copy(textAlign = TextAlign.Center),
+        textStyle = textStyle,
         keyboardOptions = KeyboardOptions(keyboardType = if (decimal) KeyboardType.Decimal else KeyboardType.Number),
+        colors = if (decorated) {
+            OutlinedTextFieldDefaults.colors(focusedBorderColor = Color.Transparent, unfocusedBorderColor = Color.Transparent)
+        } else {
+            OutlinedTextFieldDefaults.colors()
+        },
         modifier = Modifier
             .padding(horizontal = 8.dp)
-            .width(96.dp),
+            .width(96.dp)
+            .then(if (decorated) Modifier.weightDecor(weight.decor, weight.decorColor) else Modifier),
     )
-    FilledTonalIconButton(onClick = onPlus, modifier = Modifier.size(48.dp)) {
-        Icon(Icons.Filled.Add, contentDescription = "Увеличить: $label")
+    StepperButton(Icons.Filled.Add, "Увеличить: $label", onPlus)
+}
+
+/** Пунктир сверху и снизу значения веса или подчёркивание. */
+private fun Modifier.weightDecor(decor: WeightDecor, color: Color): Modifier = drawBehind {
+    val y1 = 4.dp.toPx()
+    val y2 = size.height - 4.dp.toPx()
+    when (decor) {
+        WeightDecor.DASHED_LINES -> {
+            val effect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 4.dp.toPx()))
+            val w = 2.dp.toPx()
+            drawLine(color, Offset(0f, y1), Offset(size.width, y1), strokeWidth = w, pathEffect = effect)
+            drawLine(color, Offset(0f, y2), Offset(size.width, y2), strokeWidth = w, pathEffect = effect)
+        }
+        WeightDecor.UNDERLINE -> drawRect(color, Offset(8.dp.toPx(), y2 - 2.dp.toPx()), Size(size.width - 16.dp.toPx(), 2.dp.toPx()))
+        WeightDecor.NONE -> Unit
     }
 }
 
@@ -136,29 +171,36 @@ fun stepWeight(text: String, delta: Double): String {
 fun FeelSelector(selected: Feel?, onSelect: (Feel) -> Unit, modifier: Modifier = Modifier) {
     // Стандартный отступ кнопки (24 dp по бокам) не оставлял места для «Тяжело» на узком экране.
     val contentPadding = PaddingValues(horizontal = 4.dp)
+    val t = LocalGymTokens.current
+    // Вне карточки (в диалогах) — цвета для фона страницы, если тема их задаёт.
+    val pageColors = t.feelOnPage.takeIf { !LocalOnCard.current }
     Row(modifier = modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Feel.entries.forEach { feel ->
-            val color = FeelColors.of(feel)
+            val f = t.feel(feel).let { s -> pageColors?.get(feel)?.let { c -> s.copy(content = c, border = c) } ?: s }
             val isSelected = feel == selected
             if (isSelected) {
                 Button(
                     onClick = { onSelect(feel) },
-                    colors = ButtonDefaults.buttonColors(containerColor = color, contentColor = Color(0xFF111111)),
+                    shape = t.feelShape,
+                    colors = ButtonDefaults.buttonColors(containerColor = f.selectedFill, contentColor = f.selectedContent),
                     contentPadding = contentPadding,
                     modifier = Modifier
                         .weight(1f)
-                        .height(52.dp),
-                ) { FeelLabel(feel.label, bold = true) }
+                        .height(52.dp)
+                        .neonGlow(f.selectedGlow, t.feelShape),
+                ) { FeelLabel(feel.label, bold = true, swatch = f.swatch, ink = f.selectedContent) }
             } else {
                 OutlinedButton(
                     onClick = { onSelect(feel) },
-                    border = BorderStroke(1.dp, color),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = color),
+                    shape = t.feelShape,
+                    // Монохромные темы (с образцами дизеринга) — рамка 2 dp.
+                    border = BorderStroke(if (f.swatch != null) 2.dp else 1.dp, f.border),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = f.content),
                     contentPadding = contentPadding,
                     modifier = Modifier
                         .weight(1f)
                         .height(52.dp),
-                ) { FeelLabel(feel.label, bold = false) }
+                ) { FeelLabel(feel.label, bold = false, swatch = f.swatch, ink = f.content) }
             }
         }
     }
@@ -166,18 +208,35 @@ fun FeelSelector(selected: Feel?, onSelect: (Feel) -> Unit, modifier: Modifier =
 
 /** Подпись кнопки самочувствия: одна строка, по центру; при нехватке места шрифт уменьшается, а не обрезается. */
 @Composable
-private fun FeelLabel(text: String, bold: Boolean) {
+private fun FeelLabel(text: String, bold: Boolean, swatch: Dither? = null, ink: Color = Color.Unspecified) {
     val style = MaterialTheme.typography.labelLarge
-    Text(
-        text,
-        style = style,
-        fontWeight = if (bold) FontWeight.Bold else FontWeight.Medium,
-        maxLines = 1,
-        softWrap = false,
-        textAlign = TextAlign.Center,
-        autoSize = TextAutoSize.StepBased(minFontSize = 10.sp, maxFontSize = style.fontSize),
-        modifier = Modifier.fillMaxWidth(),
-    )
+    if (swatch == null) {
+        Text(
+            text,
+            style = style,
+            fontWeight = if (bold) FontWeight.Bold else FontWeight.Medium,
+            maxLines = 1,
+            softWrap = false,
+            textAlign = TextAlign.Center,
+            autoSize = TextAutoSize.StepBased(minFontSize = 10.sp, maxFontSize = style.fontSize),
+            modifier = Modifier.fillMaxWidth(),
+        )
+        return
+    }
+    // Монохромные темы: образец дизеринга 12 dp перед подписью отличает варианты без цвета.
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
+        DitherSwatch(swatch, ink)
+        Spacer(Modifier.width(6.dp))
+        Text(
+            text,
+            style = style,
+            fontWeight = if (bold) FontWeight.Bold else FontWeight.Medium,
+            maxLines = 1,
+            softWrap = false,
+            autoSize = TextAutoSize.StepBased(minFontSize = 9.sp, maxFontSize = style.fontSize),
+            modifier = Modifier.weight(1f, fill = false),
+        )
+    }
 }
 
 /**
@@ -194,16 +253,19 @@ fun SetsRepsPill(
     modifier: Modifier = Modifier,
 ) {
     val colors = MaterialTheme.colorScheme
+    val t = LocalGymTokens.current
     val value = stringResource(R.string.sets_reps_value, sets.trim().ifEmpty { "–" }, reps.trim().ifEmpty { "–" })
     val action = stringResource(if (expanded) R.string.sets_reps_collapse else R.string.sets_reps_expand, value)
     val description = if (highlighted) "$action, ${stringResource(R.string.sets_reps_non_default)}" else action
     Surface(
         onClick = onClick,
-        shape = CircleShape,
+        shape = t.chipShape,
         color = if (highlighted) colors.primaryContainer else colors.surfaceContainerHighest,
         contentColor = if (highlighted) colors.onPrimaryContainer else colors.onSurfaceVariant,
-        border = if (highlighted) BorderStroke(1.dp, colors.primary) else null,
-        modifier = modifier.semantics(mergeDescendants = true) { contentDescription = description },
+        border = if (highlighted && !t.pillDashed) BorderStroke(1.dp, colors.primary) else null,
+        modifier = modifier
+            .then(if (t.pillDashed) Modifier.dashedBorder(colors.outline, 1.5.dp, t.chipShape, dash = 4.dp) else Modifier)
+            .semantics(mergeDescendants = true) { contentDescription = description },
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
@@ -309,8 +371,47 @@ fun ExerciseDialog(
 
 /** Подпись самочувствия цветом. */
 @Composable
-fun FeelText(feel: Feel, modifier: Modifier = Modifier) {
-    Text(feel.label, color = FeelColors.of(feel), fontWeight = FontWeight.SemiBold, modifier = modifier)
+fun FeelText(feel: Feel, modifier: Modifier = Modifier, singleLine: Boolean = false) {
+    val color = feelTextColor(feel)
+    val swatch = LocalGymTokens.current.feel(feel).swatch
+    if (swatch == null) {
+        ShrinkText(feel.label, singleLine, color = color, fontWeight = FontWeight.SemiBold, modifier = modifier)
+    } else {
+        Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+            DitherSwatch(swatch, color, size = 10.dp)
+            Spacer(Modifier.width(4.dp))
+            ShrinkText(feel.label, singleLine, color = color, fontWeight = FontWeight.SemiBold)
+        }
+    }
+}
+
+/**
+ * Текст ячейки таблицы: при [singleLine] — в одну строку, а если не помещается (широкие моноширинные
+ * шрифты тем), шрифт уменьшается вместо переноса посреди слова. Когда текст помещается — выглядит как обычно.
+ */
+@Composable
+fun ShrinkText(
+    text: String,
+    singleLine: Boolean,
+    modifier: Modifier = Modifier,
+    color: Color = Color.Unspecified,
+    fontWeight: FontWeight? = null,
+    style: androidx.compose.ui.text.TextStyle = androidx.compose.material3.LocalTextStyle.current,
+) {
+    if (!singleLine) {
+        Text(text, color = color, fontWeight = fontWeight, style = style, modifier = modifier)
+    } else {
+        Text(
+            text,
+            color = color,
+            fontWeight = fontWeight,
+            style = style,
+            maxLines = 1,
+            softWrap = false,
+            autoSize = TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = style.fontSize),
+            modifier = modifier,
+        )
+    }
 }
 
 /** Пустое состояние списка. */

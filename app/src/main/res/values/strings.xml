@@ -8,4 +8,24 @@
     <string name="sets_reps_expand">Изменить подходы и повторы: %1$s</string>
     <string name="sets_reps_collapse">Свернуть подходы и повторы: %1$s</string>
     <string name="sets_reps_non_default">отличается от обычного</string>
+
+    <!-- Темы оформления -->
+    <string name="theme_classic">Классическая</string>
+    <string name="theme_dither_1bit">Дизеринг 1-bit</string>
+    <string name="theme_dither_gameboy">Дизеринг Game Boy</string>
+    <string name="theme_neon_synthwave">Неон синтвейв</string>
+    <string name="theme_neon_acid">Неон кислота</string>
+    <string name="theme_cyber_yellow">Киберпанк жёлтый</string>
+    <string name="theme_cyber_hud">Киберпанк HUD</string>
+    <string name="theme_picker_title">Тема оформления</string>
+    <string name="theme_button_description">Сменить тему оформления</string>
+    <string name="theme_selected">Выбрана</string>
+    <string name="theme_preview_feel">Норм</string>
+
+    <!-- Шапки экранов -->
+    <string name="workout_progress">%1$s · %2$d / %3$d</string>
+    <string name="hud_strip">РЕЖИМ: ЗАЛ · %1$s</string>
+    <string name="kicker_workout">Тренировка</string>
+    <string name="kicker_history">История</string>
+    <string name="kicker_exercises">Упражнения</string>
 </resources>

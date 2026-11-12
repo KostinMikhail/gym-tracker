@@ -6,7 +6,7 @@
 
 1. **Сохраняй существующий код и весь функционал.** Меняй только то, что требует задача (или существующий код, от которого новая функция действительно зависит). Никаких посторонних рефакторингов, переименований, переформатирования и обновлений зависимостей.
 2. **Любое изменение схемы Room** → `version + 1` в `GymDatabase`, новая `Migration` в `GymDatabase.MIGRATIONS`, тест миграции в `MigrationTest` (данные, вставленные в старую версию, на месте после миграции). Новый JSON схемы в `app/schemas/` коммитится. **Никогда** `fallbackToDestructiveMigration` и другие деструктивные миграции. Данные пользователя должны переживать каждое обновление. `applicationId` (`com.gym.tracker`) и ключ подписи не меняются никогда.
-3. Весь текст интерфейса — **на русском**; **только тёмная тема**; **только килограммы**.
+3. Весь текст интерфейса — **на русском** (новые строки — в `res/values/strings.xml`); **только килограммы**. Оформление — только через систему тем (см. «Темы»): никаких захардкоженных цветов/форм в экранах, все 7 тем должны выглядеть корректно; системная светлая/тёмная настройка не используется.
 4. Перед завершением любой задачи: сборка, все тесты и lint (`gradlew.bat clean assembleRelease testDebugUnitTest lint`), проверка критериев приёмки по одному, повторное чтение всего diff в поисках регрессий и забытого отладочного кода; всё найденное — исправить.
 5. Коммит с понятным сообщением и push в `main`, чтобы CI выпустил обновление — только когда всё проходит. Проверить, что CI зелёный и релиз появился (`gh run watch`).
 6. Финальный отчёт владельцу на русском: что изменилось, какие файлы, как проверено, что нужно сделать владельцу.
@@ -29,10 +29,11 @@ Single-activity, Jetpack Compose + Material 3, Navigation Compose (строко�
 
 ```
 com.gym.tracker
-├── GymApplication        — ручной DI: GymDatabase + GymRepository (lazy)
-├── MainActivity          — edge-to-edge, GymTheme { GymApp() }
+├── GymApplication        — ручной DI: GymDatabase + GymRepository + ThemePreferences (lazy)
+├── MainActivity          — читает тему до первого кадра, системные панели по теме, GymTheme(themeId) { GymApp() }
 ├── data
 │   ├── GymRepository     — единственная точка доступа UI к данным (транзакции, бизнес-правила записи)
+│   ├── ThemePreferences  — выбранная тема в DataStore (Preferences), не в Room
 │   └── db
 │       ├── Entities.kt   — сущности + enum Feel
 │       ├── Projections.kt— POJO для JOIN-запросов
@@ -46,9 +47,11 @@ com.gym.tracker
 └── ui
     ├── GymApp.kt         — NavHost, Routes, нижняя навигация (Тренировка / История / Упражнения)
     ├── ViewModels.kt     — gymViewModel { repo, savedStateHandle -> VM }
-    ├── theme/Theme.kt    — тёмная схема, FeelColors
-    ├── components/       — NumberStepper, FeelSelector, ExerciseDialog, ConfirmDialog…
-    ├── home/             — HomeScreen/HomeViewModel: «Начать тренировку», выбор шаблона, последние тренировки
+    ├── theme/            — система тем: GymThemeId, GymTokens (+LocalGymTokens), Themes.kt (7 тем), Fonts.kt,
+    │                       Effects.kt (свечение, жёсткая тень, пунктир, уголки, дизеринг), Decor.kt (фон, декор шапки, ScreenTitle)
+    ├── components/       — NumberStepper, FeelSelector, ExerciseDialog, ConfirmDialog…; Themed.kt: GymCard, GymDoneButton, StepperButton, ThemeButton
+    ├── home/             — HomeScreen/HomeContent/HomeViewModel: кнопка темы + дата, «Начать тренировку», выбор шаблона, последние тренировки;
+    │                       ThemePicker.kt — нижний лист «Тема оформления»
     ├── workout/          — WorkoutScreen/WorkoutViewModel: карточки слотов, черновики в SavedStateHandle
     ├── history/          — HistoryScreen (по датам / по упражнениям), SessionDetailScreen (+ итоги), ExerciseHistoryScreen (график Canvas + таблица + рекорд)
     └── exercises/        — ExercisesScreen: список, редактирование названия/подходов/повторов
@@ -75,9 +78,21 @@ com.gym.tracker
 - Звёздочка делает вариант избранным для слота (сохраняется сразу, влияет на будущие тренировки) и выбирает его.
 - Добавление варианта в слот переиспользует существующее упражнение с тем же названием (без учёта регистра/пробелов).
 - Редактор шаблонов/слотов пока не реализован (отдельная задача).
+- Экран тренировки: шапка уезжает при прокрутке вниз (enterAlways) и возвращается при прокрутке вверх; полоса «Фулбади Б · N / M» закреплена; нижняя панель навигации видна и на тренировке и прячется при прокрутке вниз (только там). Вкладка «Тренировка» на этом экране — текущая.
+
+### Темы
+
+- 7 тем (`GymThemeId`, порядок = порядок в списке): Классическая (по умолчанию, исходный вид), Дизеринг 1-bit, Дизеринг Game Boy, Неон синтвейв, Неон кислота, Киберпанк жёлтый, Киберпанк HUD.
+- Тема = Material `ColorScheme` + `Typography` + `Shapes` + `GymTokens` (через `LocalGymTokens`): цвета самочувствия, роли карточек (`CardRole`), формы, свечение, жёсткие тени, декор, стиль кнопки «Готово», нижней панели и т.д. Экраны общие для всех тем — новые экраны строить на `GymCard`, `GymDoneButton`, `ScreenTitle`, `HeaderDecor`, токенах.
+- В Классической все необязательные токены = null → поведение и вид как у Material по умолчанию (как было до тем).
+- `storageKey` тем сохраняется в DataStore — существующие значения не менять; неизвестное значение → Классическая.
+- Шрифты — в `res/font` (офлайн), лицензии OFL — в `licenses/`. В Pixelify Sans добавлены cmap-записи для «О» и «П».
+- Контраст WCAG для всех тем проверяет `ThemeContrastTest` — при изменении цветов тест должен проходить.
+- Экраны прозрачные (`containerColor = Transparent`), фон и декор рисует `GymBackground` один раз на весь экран.
 
 ### Тесты (`app/src/test`, JVM + Robolectric, запускаются `testDebugUnitTest`)
 
 - `SeedDataTest`, `WorkoutLogicTest` — чистая логика.
 - `data/RepositoryTest` — DAO и репозиторий на in-memory Room с сидом.
+- `data/ThemePreferencesTest` — сохранение темы и откат к Классической; `ThemeContrastTest` — контраст всех тем; `ProgressTest` — счётчик «N / M» и дата шапки.
 - `data/MigrationTest` — `MigrationTestHelper` по схемам из `app/schemas` (подключены как debug-assets). Путь к тестовой БД абсолютный — иначе Room на Windows падает.

@@ -1,5 +1,13 @@
 package com.gym.tracker.ui.exercises
 
+import androidx.compose.ui.res.stringResource
+import com.gym.tracker.R
+import com.gym.tracker.ui.components.GymCard
+import com.gym.tracker.ui.theme.CardRole
+import com.gym.tracker.ui.theme.HeaderDecor
+import com.gym.tracker.ui.theme.ScreenKicker
+import com.gym.tracker.ui.theme.ScreenTitle
+import java.time.LocalDate
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -12,8 +20,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ShowChart
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -85,13 +91,20 @@ fun ExercisesScreen(vm: ExercisesViewModel, contentPadding: PaddingValues, onOpe
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        item { Text("Упражнения", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(bottom = 8.dp)) }
+        item {
+            ScreenKicker(stringResource(R.string.kicker_exercises))
+            ScreenTitle("Упражнения", fallback = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(bottom = 8.dp))
+            HeaderDecor(
+                hudText = stringResource(R.string.hud_strip, Format.weekdayDate(LocalDate.now())),
+                modifier = Modifier.padding(bottom = 8.dp),
+            )
+        }
         val list = exercises
         if (list != null && list.isEmpty()) item { EmptyText("Упражнений нет") }
         items(list.orEmpty(), key = { it.id }) { ex ->
-            Card(
+            GymCard(
                 modifier = Modifier.fillMaxWidth().clickable { vm.clearError(); editingId = ex.id },
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                role = CardRole.LIST,
             ) {
                 Row(Modifier.padding(start = 16.dp, top = 8.dp, bottom = 8.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {

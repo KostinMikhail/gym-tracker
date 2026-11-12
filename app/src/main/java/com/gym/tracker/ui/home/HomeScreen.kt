@@ -1,6 +1,5 @@
 package com.gym.tracker.ui.home
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -14,8 +13,22 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.tooling.preview.PreviewParameter
+import com.gym.tracker.R
+import com.gym.tracker.data.db.WorkoutTemplateEntity
+import com.gym.tracker.ui.components.GymCard
+import com.gym.tracker.ui.components.ThemeButton
+import com.gym.tracker.ui.theme.CardRole
+import com.gym.tracker.ui.theme.GymBackground
+import com.gym.tracker.ui.theme.GymTheme
+import com.gym.tracker.ui.theme.GymThemeId
+import com.gym.tracker.ui.theme.GymThemePreviewProvider
+import com.gym.tracker.ui.theme.HeaderDecor
+import com.gym.tracker.ui.theme.LocalGymTokens
+import com.gym.tracker.ui.theme.ScreenKicker
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -28,7 +41,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -80,17 +92,17 @@ class HomeViewModel(private val repo: GymRepository) : ViewModel() {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     vm: HomeViewModel,
     contentPadding: PaddingValues,
+    currentTheme: GymThemeId,
+    onThemeSelected: (GymThemeId) -> Unit,
     onStartWorkout: (String) -> Unit,
     onOpenSession: (String) -> Unit,
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     val started by vm.startedSessionId.collectAsStateWithLifecycle()
-    var showSheet by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(started) {
         started?.let {
@@ -99,26 +111,68 @@ fun HomeScreen(
         }
     }
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(contentPadding),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        item {
-            Text("Gym", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(16.dp))
-            Button(
-                onClick = { showSheet = true },
-                modifier = Modifier.fillMaxWidth().height(72.dp),
-            ) { Text("Начать тренировку", style = MaterialTheme.typography.titleLarge) }
-            Spacer(Modifier.height(24.dp))
-            Text("Последние тренировки", style = MaterialTheme.typography.titleMedium)
+    HomeContent(
+        state = state,
+        contentPadding = contentPadding,
+        currentTheme = currentTheme,
+        onThemeSelected = onThemeSelected,
+        onStartTemplate = vm::start,
+        onOpenSession = onOpenSession,
+    )
+}
+
+/** Содержимое главного экрана без ViewModel (для @Preview). */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun HomeContent(
+    state: HomeUiState,
+    contentPadding: PaddingValues,
+    currentTheme: GymThemeId,
+    onThemeSelected: (GymThemeId) -> Unit,
+    onStartTemplate: (String) -> Unit,
+    onOpenSession: (String) -> Unit,
+    today: LocalDate = LocalDate.now(),
+) {
+    var showSheet by rememberSaveable { mutableStateOf(false) }
+    var showThemePicker by rememberSaveable { mutableStateOf(false) }
+    val tokens = LocalGymTokens.current
+    val todayText = Format.weekdayDate(today)
+
+    Column(Modifier.fillMaxSize().padding(contentPadding)) {
+        // Шапка: слева — кнопка темы, справа — сегодняшняя дата.
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(64.dp)
+                .padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            ThemeButton(onClick = { showThemePicker = true })
+            Spacer(Modifier.weight(1f))
+            Text(todayText, style = MaterialTheme.typography.titleMedium)
         }
-        if (state.recent.isEmpty()) {
-            item { EmptyText("Тренировок пока нет") }
-        }
-        items(state.recent, key = { it.id }) { s ->
-            SessionRow(s, onClick = { onOpenSession(s.id) })
+        HeaderDecor(hudText = stringResource(R.string.hud_strip, todayText))
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            item {
+                ScreenKicker(stringResource(R.string.kicker_workout), Modifier.padding(bottom = 8.dp))
+                Button(
+                    onClick = { showSheet = true },
+                    shape = tokens.buttonShape ?: ButtonDefaults.shape,
+                    modifier = Modifier.fillMaxWidth().height(72.dp),
+                ) { Text("Начать тренировку", style = MaterialTheme.typography.titleLarge) }
+                Spacer(Modifier.height(24.dp))
+                Text("Последние тренировки", style = MaterialTheme.typography.titleMedium)
+            }
+            if (state.recent.isEmpty()) {
+                item { EmptyText("Тренировок пока нет") }
+            }
+            items(state.recent, key = { it.id }) { s ->
+                SessionRow(s, onClick = { onOpenSession(s.id) })
+            }
         }
     }
 
@@ -128,15 +182,13 @@ fun HomeScreen(
                 Text("Выберите тренировку", style = MaterialTheme.typography.titleLarge)
                 state.templates.forEach { t ->
                     val suggested = t.template.id == state.suggestedId
-                    Card(
+                    GymCard(
                         modifier = Modifier.fillMaxWidth().clickable {
                             showSheet = false
-                            vm.start(t.template.id)
+                            onStartTemplate(t.template.id)
                         },
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (suggested) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
-                        ),
-                        border = if (suggested) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
+                        role = if (suggested) CardRole.HIGHLIGHT else CardRole.ACTIVE,
+                        emphasized = suggested,
                     ) {
                         Row(Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
@@ -148,7 +200,7 @@ fun HomeScreen(
                                 )
                             }
                             if (suggested) {
-                                Text("Следующая",style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                                Text("Следующая", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                             }
                         }
                     }
@@ -156,14 +208,15 @@ fun HomeScreen(
             }
         }
     }
+
+    if (showThemePicker) {
+        ThemePickerSheet(current = currentTheme, onSelect = onThemeSelected, onDismiss = { showThemePicker = false })
+    }
 }
 
 @Composable
 fun SessionRow(s: SessionSummary, onClick: () -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-    ) {
+    GymCard(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick), role = CardRole.LIST) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(Format.date(s.date), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(end = 16.dp))
             Column(Modifier.weight(1f)) {
@@ -174,6 +227,26 @@ fun SessionRow(s: SessionSummary, onClick: () -> Unit) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+        }
+    }
+}
+
+@Preview(name = "Главная — темы", widthDp = 360, heightDp = 640)
+@Composable
+private fun HomePreview(@PreviewParameter(GymThemePreviewProvider::class) themeId: GymThemeId) {
+    fun template(id: String, name: String, order: Int, last: LocalDate?) =
+        TemplateWithLastDate(WorkoutTemplateEntity(id, name, order, 0, 0), last)
+    val state = HomeUiState(
+        templates = listOf(template("a", "Фулбади А", 0, LocalDate.of(2026, 11, 9)), template("b", "Фулбади Б", 1, null)),
+        suggestedId = "b",
+        recent = listOf(
+            SessionSummary("s1", "a", LocalDate.of(2026, 11, 9), 1L, "Фулбади А", 6),
+            SessionSummary("s2", "b", LocalDate.of(2026, 11, 6), 1L, "Фулбади Б", 7),
+        ),
+    )
+    GymTheme(themeId) {
+        GymBackground {
+            HomeContent(state, PaddingValues(), themeId, {}, {}, {}, today = LocalDate.of(2026, 11, 11))
         }
     }
 }

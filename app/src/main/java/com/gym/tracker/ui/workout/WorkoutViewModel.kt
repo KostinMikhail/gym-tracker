@@ -11,6 +11,7 @@ import com.gym.tracker.data.db.SessionEntryEntity
 import com.gym.tracker.data.db.SlotOptionExercise
 import com.gym.tracker.data.db.TemplateSlotEntity
 import com.gym.tracker.domain.Format
+import com.gym.tracker.domain.confirmedSlotCount
 import com.gym.tracker.domain.prefillFor
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -59,6 +60,8 @@ data class WorkoutUiState(
     val date: LocalDate = LocalDate.now(),
     val cards: List<SlotCardUi> = emptyList(),
     val doneCount: Int = 0,
+    /** Слотов с сохранённой записью в этой тренировке (для полосы «Фулбади Б · 3 / 7»). */
+    val confirmedCount: Int = 0,
 )
 
 sealed interface WorkoutDialog {
@@ -102,7 +105,7 @@ class WorkoutViewModel(
         lastCache,
         session,
         templateName,
-    ) { (slotList, optionList, _), draftMap, cache, sess, name ->
+    ) { (slotList, optionList, entryList), draftMap, cache, sess, name ->
         val bySlot = optionList.groupBy({ it.slotId }, { it.exercise })
         val cards = slotList.map { slot ->
             val draft = draftMap[slot.id]
@@ -119,6 +122,7 @@ class WorkoutViewModel(
             date = sess?.date ?: LocalDate.now(),
             cards = cards,
             doneCount = draftMap.values.count { it.entryId != null },
+            confirmedCount = confirmedSlotCount(slotList.map { it.id }, entryList),
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), WorkoutUiState())
 
@@ -126,6 +130,10 @@ class WorkoutViewModel(
         viewModelScope.launch {
             val s = session.filterNotNull().first()
             templateName.value = repo.getTemplate(s.templateId)?.name.orEmpty()
+        }
+        // Тренировку удалили (например, из истории), а экран восстановлен из сохранённой вкладки — уходим на главную.
+        viewModelScope.launch {
+            repo.observeSession(sessionId).collect { if (it == null && nav.value == null) nav.value = WorkoutNav.Home }
         }
         // Создаём черновики для новых слотов (избранное + предзаполнение).
         viewModelScope.launch {
@@ -204,6 +212,19 @@ class WorkoutViewModel(
         val d = drafts.value[slotId] ?: return
         setDrafts(drafts.value + (slotId to block(d)))
     }
+
+    /** Действия карточки для UI. */
+    val cardActions = SlotCardActions(
+        onAddOption = ::requestAddOption,
+        onSelect = ::selectExercise,
+        onFavorite = ::setFavorite,
+        onSetsChange = { id, v -> onSetsChange(id, v) },
+        onRepsChange = { id, v -> onRepsChange(id, v) },
+        onWeightChange = { id, v -> onWeightChange(id, v) },
+        onFeel = { id, f -> onFeel(id, f) },
+        onDone = ::done,
+        onCancelEdit = ::reopenCancel,
+    )
 
     // ---- Действия UI ----
 

@@ -3,14 +3,20 @@ package com.gym.tracker.domain
 import com.gym.tracker.data.db.Feel
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 object Format {
     private val shortDate = DateTimeFormatter.ofPattern("dd.MM")
     private val fullDate = DateTimeFormatter.ofPattern("dd.MM.yyyy")
+    private val weekdayDate = DateTimeFormatter.ofPattern("EEE, dd.MM", Locale.forLanguageTag("ru"))
 
     /** dd.MM для текущего года, иначе dd.MM.yyyy. */
     fun date(date: LocalDate, today: LocalDate = LocalDate.now()): String =
         if (date.year == today.year) date.format(shortDate) else date.format(fullDate)
+
+    /** Дата с днём недели для шапки главного экрана: «ср, 11.11». */
+    fun weekdayDate(date: LocalDate): String =
+        date.format(weekdayDate).lowercase(Locale.forLanguageTag("ru")).replace(".,", ",")
 
     /** Число кг: «45», «42,5». */
     fun number(kg: Double): String {

@@ -1,5 +1,15 @@
 package com.gym.tracker.ui.history
 
+import androidx.compose.material3.LocalTextStyle
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.sp
+import com.gym.tracker.R
+import com.gym.tracker.ui.components.GymCard
+import com.gym.tracker.ui.theme.CardRole
+import com.gym.tracker.ui.theme.HeaderDecor
+import com.gym.tracker.ui.theme.ScreenTitle
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -20,8 +30,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -128,8 +136,11 @@ fun SessionDetailScreen(vm: SessionDetailViewModel, onBack: () -> Unit, onDone: 
     LaunchedEffect(deleted) { if (deleted) onBack() }
 
     Scaffold(
+        containerColor = Color.Transparent,
         topBar = {
+            Column {
             TopAppBar(
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
                 navigationIcon = {
                     IconButton(onClick = if (vm.isSummary) onDone else onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад")
@@ -138,7 +149,7 @@ fun SessionDetailScreen(vm: SessionDetailViewModel, onBack: () -> Unit, onDone: 
                 title = {
                     val s = state.session
                     Column {
-                        Text(if (vm.isSummary) "Итоги тренировки" else (s?.templateName ?: "Тренировка"))
+                        ScreenTitle(if (vm.isSummary) "Итоги тренировки" else (s?.templateName ?: "Тренировка"), fallback = LocalTextStyle.current, sizeOverride = 22.sp)
                         if (s != null) {
                             Text(
                                 if (vm.isSummary) "${s.templateName.orEmpty()} · ${Format.date(s.date)}" else Format.date(s.date),
@@ -156,6 +167,8 @@ fun SessionDetailScreen(vm: SessionDetailViewModel, onBack: () -> Unit, onDone: 
                     }
                 },
             )
+            HeaderDecor(hudText = stringResource(R.string.hud_strip, state.session?.let { Format.date(it.date) }.orEmpty()))
+            }
         },
     ) { padding ->
         LazyColumn(
@@ -177,12 +190,12 @@ fun SessionDetailScreen(vm: SessionDetailViewModel, onBack: () -> Unit, onDone: 
                 }
             }
             items(state.entries, key = { it.entry.id }) { e ->
-                Card(
+                GymCard(
                     modifier = Modifier.fillMaxWidth().clickable {
                         vm.loadOptions(e.entry.slotId)
                         editingId = e.entry.id
                     },
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                    role = CardRole.LIST,
                 ) {
                     Row(Modifier.padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {

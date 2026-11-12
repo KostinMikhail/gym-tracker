@@ -1,5 +1,15 @@
 package com.gym.tracker.ui.history
 
+import androidx.compose.material3.LocalTextStyle
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
+import com.gym.tracker.R
+import com.gym.tracker.ui.components.GymCard
+import com.gym.tracker.ui.theme.CardRole
+import com.gym.tracker.ui.theme.HeaderDecor
+import com.gym.tracker.ui.theme.ScreenTitle
+import java.time.LocalDate
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -13,8 +23,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -45,6 +53,7 @@ import com.gym.tracker.data.db.ExerciseHistoryRow
 import com.gym.tracker.domain.Format
 import com.gym.tracker.ui.components.EmptyText
 import com.gym.tracker.ui.components.FeelText
+import com.gym.tracker.ui.components.ShrinkText
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -78,13 +87,18 @@ class ExerciseHistoryViewModel(repo: GymRepository, savedState: SavedStateHandle
 fun ExerciseHistoryScreen(vm: ExerciseHistoryViewModel, onBack: () -> Unit) {
     val state by vm.state.collectAsStateWithLifecycle()
     Scaffold(
+        containerColor = Color.Transparent,
         topBar = {
+            Column {
             TopAppBar(
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад") }
                 },
-                title = { Text(state.exercise?.name ?: "Упражнение") },
+                title = { ScreenTitle(state.exercise?.name ?: "Упражнение", fallback = LocalTextStyle.current, sizeOverride = 22.sp) },
             )
+            HeaderDecor(hudText = stringResource(R.string.hud_strip, Format.weekdayDate(LocalDate.now())))
+            }
         },
     ) { padding ->
         LazyColumn(
@@ -98,7 +112,7 @@ fun ExerciseHistoryScreen(vm: ExerciseHistoryViewModel, onBack: () -> Unit) {
             }
             state.best?.let { best ->
                 item {
-                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
+                    GymCard(role = CardRole.HIGHLIGHT) {
                         Column(Modifier.fillMaxWidth().padding(16.dp)) {
                             Text("Личный рекорд", style = MaterialTheme.typography.labelLarge)
                             Text(
@@ -130,11 +144,11 @@ fun ExerciseHistoryScreen(vm: ExerciseHistoryViewModel, onBack: () -> Unit) {
             }
             items(state.rows, key = { it.entry.id }) { r ->
                 Row(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-                    Text(Format.date(r.date), Modifier.weight(0.9f), style = MaterialTheme.typography.bodyMedium)
-                    Text(r.templateName.orEmpty(), Modifier.weight(1.3f), style = MaterialTheme.typography.bodyMedium)
-                    Text(Format.setsReps(r.entry.sets, r.entry.reps), Modifier.weight(0.8f), style = MaterialTheme.typography.bodyMedium)
-                    Text(Format.weight(r.entry.weightKg), Modifier.weight(0.9f), style = MaterialTheme.typography.bodyMedium)
-                    FeelText(r.entry.feel, Modifier.weight(1f))
+                    ShrinkText(Format.date(r.date), true, Modifier.weight(0.9f).padding(end = 4.dp), style = MaterialTheme.typography.bodyMedium)
+                    ShrinkText(r.templateName.orEmpty(), true, Modifier.weight(1.3f).padding(end = 4.dp), style = MaterialTheme.typography.bodyMedium)
+                    ShrinkText(Format.setsReps(r.entry.sets, r.entry.reps), true, Modifier.weight(0.8f).padding(end = 4.dp), style = MaterialTheme.typography.bodyMedium)
+                    ShrinkText(Format.weight(r.entry.weightKg), true, Modifier.weight(0.9f).padding(end = 4.dp), style = MaterialTheme.typography.bodyMedium)
+                    FeelText(r.entry.feel, Modifier.weight(1f), singleLine = true)
                 }
             }
         }
@@ -143,8 +157,9 @@ fun ExerciseHistoryScreen(vm: ExerciseHistoryViewModel, onBack: () -> Unit) {
 
 @Composable
 private fun androidx.compose.foundation.layout.RowScope.HeaderCell(text: String, weight: Float) {
-    Text(
+    ShrinkText(
         text,
+        true,
         Modifier.weight(weight),
         style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,

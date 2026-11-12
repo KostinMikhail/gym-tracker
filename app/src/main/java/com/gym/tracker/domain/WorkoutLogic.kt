@@ -44,3 +44,9 @@ fun suggestTemplateId(templates: List<TemplateWithLastDate>, latestSession: Work
         .sortedWith(compareBy<TemplateWithLastDate, java.time.LocalDate?>(nullsFirst()) { it.lastDate }.thenBy { it.template.sortOrder })
         .first().template.id
 }
+
+/** Сколько слотов тренировки уже отмечены «Готово» (есть запись с этим слотом). */
+fun confirmedSlotCount(slotIds: Collection<String>, entries: Collection<SessionEntryEntity>): Int {
+    val done = entries.mapNotNullTo(HashSet()) { it.slotId }
+    return slotIds.count { it in done }
+}
