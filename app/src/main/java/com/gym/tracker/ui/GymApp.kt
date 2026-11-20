@@ -57,6 +57,9 @@ import com.gym.tracker.ui.home.HomeViewModel
 import com.gym.tracker.ui.theme.GymBackground
 import com.gym.tracker.ui.theme.GymThemeId
 import com.gym.tracker.ui.theme.LocalGymTokens
+import com.gym.tracker.sync.SyncWorker
+import com.gym.tracker.ui.settings.SettingsScreen
+import com.gym.tracker.ui.settings.SettingsViewModel
 import com.gym.tracker.ui.timer.TimerScreen
 import com.gym.tracker.ui.timer.TimerViewModel
 import com.gym.tracker.ui.workout.WorkoutScreen
@@ -67,6 +70,7 @@ object Routes {
     const val HISTORY = "history"
     const val EXERCISES = "exercises"
     const val TIMER = "timer"
+    const val SETTINGS = "settings"
     const val WORKOUT = "workout/{${WorkoutViewModel.ARG_SESSION_ID}}"
     const val SESSION = "session/{${SessionDetailViewModel.ARG_SESSION_ID}}?${SessionDetailViewModel.ARG_SUMMARY}={${SessionDetailViewModel.ARG_SUMMARY}}"
     const val EXERCISE_HISTORY = "exercise/{${ExerciseHistoryViewModel.ARG_EXERCISE_ID}}"
@@ -169,6 +173,20 @@ fun GymApp(
                         onThemeSelected = onThemeSelected,
                         onStartWorkout = { nav.navigate(Routes.workout(it)) },
                         onOpenSession = { nav.navigate(Routes.session(it)) },
+                        onOpenSettings = { nav.navigate(Routes.SETTINGS) },
+                    )
+                }
+                composable(Routes.SETTINGS) {
+                    val app = LocalContext.current.applicationContext as GymApplication
+                    SettingsScreen(
+                        vm = viewModel(
+                            factory = viewModelFactory {
+                                initializer {
+                                    SettingsViewModel(app.repository, app.syncPreferences, app.sheetSync) { SyncWorker.schedule(app) }
+                                }
+                            },
+                        ),
+                        onBack = { nav.popBackStack() },
                     )
                 }
                 composable(Routes.HISTORY) {

@@ -147,3 +147,24 @@ data class SessionEntryEntity(
     val createdAt: Long,
     val updatedAt: Long,
 )
+
+/** Операция очереди выгрузки в Google Таблицу. Хранится по имени — не переименовывать. */
+enum class SyncOpType { UPSERT, DELETE }
+
+/**
+ * Очередь выгрузки (outbox): что нужно отправить в таблицу. На одну запись — не больше одной операции
+ * (уникальный entryId): новая операция заменяет прежнюю (с новым id — так отправитель понимает, что
+ * отправленная версия устарела). Данные строки берутся из БД в момент отправки.
+ */
+@Entity(
+    tableName = "sync_ops",
+    indices = [Index(value = ["entryId"], unique = true)],
+)
+data class SyncOpEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val entryId: String,
+    val op: SyncOpType,
+    val createdAt: Long,
+    val attempts: Int = 0,
+    val lastError: String? = null,
+)

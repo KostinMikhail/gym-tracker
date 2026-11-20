@@ -29,24 +29,34 @@ Single-activity, Jetpack Compose + Material 3, Navigation Compose (строко�
 
 ```
 com.gym.tracker
-├── GymApplication        — ручной DI: GymDatabase + GymRepository + один DataStore «settings» (ThemePreferences, TimerPreferences) + TimerController (lazy)
+├── GymApplication        — ручной DI: GymDatabase + GymRepository + один DataStore «settings» (ThemePreferences, TimerPreferences, SyncPreferences)
+│                           + TimerController + SheetSync (lazy)
 ├── MainActivity          — читает тему до первого кадра, системные панели по теме, GymTheme(themeId) { GymApp() };
 │                           EXTRA_OPEN_TIMER из уведомления таймера → вкладка «Таймер». Только портретная ориентация.
+│                           При старте: если очередь выгрузки не пуста — SyncWorker.schedule.
 ├── data
-│   ├── GymRepository     — единственная точка доступа UI к данным (транзакции, бизнес-правила записи)
+│   ├── GymRepository     — единственная точка доступа UI к данным (транзакции, бизнес-правила записи);
+│   │                       изменения записей ставят операции в sync_ops в той же транзакции → onOutboxChanged
 │   ├── ThemePreferences  — выбранная тема в DataStore (Preferences), не в Room
 │   ├── TimerPreferences  — последние настройки таймера (раунды/раунд/отдых) и флаг «разрешение уведомлений спрашивали»
+│   ├── SyncPreferences   — ссылка на Apps Script, токен (не логировать!), время последней синхронизации, последняя ошибка
 │   └── db
 │       ├── Entities.kt   — сущности + enum Feel
 │       ├── Projections.kt— POJO для JOIN-запросов
-│       ├── Daos.kt       — ExerciseDao, TemplateDao, SessionDao
+│       ├── Daos.kt       — ExerciseDao, TemplateDao, SessionDao, SyncDao
 │       ├── Converters.kt — LocalDate ↔ "yyyy-MM-dd", Feel ↔ имя
 │       ├── SeedData.kt   — начальные шаблоны/слоты/упражнения (чистая функция build)
-│       └── GymDatabase.kt— Room DB (version 1), MIGRATIONS, SeedCallback (onCreate)
+│       ├── Migrations.kt — MIGRATION_1_2 (sync_ops)
+│       └── GymDatabase.kt— Room DB (version 2), MIGRATIONS, SeedCallback (onCreate)
 ├── domain
 │   ├── WorkoutLogic.kt   — prefillFor, roundWeight, normalizeName, suggestTemplateId
 │   ├── Format.kt         — даты dd.MM / dd.MM.yyyy, вес («без веса» для 0), «3×12 · 45 кг · Норм»
 │   └── timer/            — IntervalTimer (чистая машина состояний таймера, часы внедряются), TimerConfig, TimerFormat
+├── sync
+│   ├── SheetProtocol     — JSON-протокол с Code.gs (kotlinx.serialization, сериализаторы явно), сборка строки из БД
+│   ├── SheetClient       — OkHttp без авто-редиректов: POST → 302 → GET по Location (POST не повторяется), SheetError.Kind
+│   ├── SheetSync         — отправка очереди пакетами по 200, удаление подтверждённых (по id операции), ping
+│   └── SyncWorker        — WorkManager, уникальная работа REPLACE, сеть CONNECTED, экспоненциальный backoff
 ├── timer
 │   ├── TimerController   — один таймер на процесс: StateFlow<TimerSnapshot?> (null = настройки) + поток сигналов; цикл в MainScope
 │   ├── TimerService      — foreground-сервис (specialUse): уведомление с Пауза/Продолжить, wake lock, звук; стоп при сбросе/после «Готово»
@@ -62,6 +72,7 @@ com.gym.tracker
     ├── workout/          — WorkoutScreen/WorkoutViewModel: карточки слотов, черновики в SavedStateHandle
     ├── history/          — HistoryScreen (по датам / по упражнениям), SessionDetailScreen (+ итоги), ExerciseHistoryScreen (график Canvas + таблица + рекорд)
     ├── exercises/        — ExercisesScreen: список, редактирование названия/подходов/повторов
+    ├── settings/         — SettingsScreen/SettingsViewModel: «Синхронизация с Google Таблицей» (ссылка, токен, проверка, статус, выгрузка истории)
     └── timer/            — TimerScreen (настройки / ход / пауза / «Готово»), TimerViewModel, TabularText (цифры в ячейках фикс. ширины)
 ```
 
@@ -73,10 +84,11 @@ com.gym.tracker
 - `slot_options` — PK (slotId, exerciseId), sortOrder.
 - `workout_sessions` — id, templateId → templates (RESTRICT), date (LocalDate), finishedAt (nullable).
 - `session_entries` — id, sessionId → sessions (CASCADE), slotId → slots (SET NULL, nullable), exerciseId → exercises (RESTRICT), sets, reps, weightKg (шаг 0,5; 0 = без веса), feel (EASY/NORMAL/HARD).
+- `sync_ops` (v2) — очередь выгрузки в Google Таблицу: id (autoincrement), entryId (уникальный — одна операция на запись, новая заменяет старую), op (UPSERT/DELETE), createdAt, attempts, lastError.
 
 ### Навигация
 
-`home`, `history`, `exercises`, `timer` (вкладки) → `workout/{sessionId}`, `session/{sessionId}?summary={bool}`, `exercise/{exerciseId}`.
+`home`, `history`, `exercises`, `timer` (вкладки), `settings` (шестерёнка на главной) → `workout/{sessionId}`, `session/{sessionId}?summary={bool}`, `exercise/{exerciseId}`.
 Тренировка создаётся при старте (строка в `workout_sessions`), каждая «Готово» сразу пишет `session_entries`. «Продолжить тренировку» нет. «Завершить» → `finishedAt` и экран итогов; пустую тренировку предлагается удалить.
 
 ### Ключевые правила поведения
@@ -87,6 +99,7 @@ com.gym.tracker
 - Добавление варианта в слот переиспользует существующее упражнение с тем же названием (без учёта регистра/пробелов).
 - Редактор шаблонов/слотов пока не реализован (отдельная задача).
 - Таймер: подготовка 5 с → раунд (1 гонг) → «10 секунд» (3 стука + предупреждение, только если раунд > 10 с) → отдых (2 гонга; при отдыхе 0 — сразу 1 гонг) → … → 3 гонга и «Готово». Время — только по дедлайнам SystemClock.elapsedRealtime (следующая фаза от дедлайна предыдущей, без дрейфа). Пока таймер идёт/на паузе: нижней панели нет, экран не гаснет; Back — сразу остановить таймер и выйти (без вопроса). Фаза и номер раунда — одной строкой наверху, полосы прогресса нет. «Сбросить всё» — обычным нажатием. Смерть процесса = таймер сброшен (настройки в DataStore). Гонг — запись «Boxing Bell» (Universfield, Pixabay), 5 с, готовит `tools/prepare_bell.py`; стук синтезирует `tools/gen_timer_sounds.py`. Источники — `licenses/README.md`.
+- Google Таблица — одностороннее зеркало (Room — источник правды): сохранение/правка записи → UPSERT; удаление записи или тренировки → DELETE; переименование упражнения и смена даты тренировки → UPSERT для затронутых записей; «Выгрузить всю историю» → UPSERT для всех. Строка собирается из БД в момент отправки (записи нет → DELETE). Без ссылки и токена ничего не отправляется (очередь копится, одна операция на запись). Серверная часть — `tools/apps-script/Code.gs` (лист «Журнал», токен в свойстве TOKEN), проверка — `node tools/apps-script/Code.test.js`; инструкция — README.
 - Экран тренировки: шапка уезжает при прокрутке вниз (enterAlways) и возвращается при прокрутке вверх; полоса «Фулбади Б · N / M» закреплена; нижняя панель навигации видна и на тренировке и прячется при прокрутке вниз (только там). Вкладка «Тренировка» на этом экране — текущая.
 
 ### Темы
@@ -106,4 +119,5 @@ com.gym.tracker
 - `data/RepositoryTest` — DAO и репозиторий на in-memory Room с сидом.
 - `data/ThemePreferencesTest` — сохранение темы и откат к Классической; `ThemeContrastTest` — контраст всех тем; `ProgressTest` — счётчик «N / M» и дата шапки.
 - `IntervalTimerTest` (последовательность, 10 с, отдых 0, 1 раунд, пауза, «Раунд заново», без дрейфа за 60 мин), `TimerControllerTest` (виртуальное время), `TimerThemeTest` (контраст и различимость состояний таймера), `data/TimerPreferencesTest`.
+- `data/SyncOutboxTest` (правила очереди), `sync/SheetSyncTest` (строки, пропавшие записи, частичный `applied`, пакеты, ошибки), `sync/SheetClientTest` (MockWebServer: POST → 302 → GET, ошибки).
 - `data/MigrationTest` — `MigrationTestHelper` по схемам из `app/schemas` (подключены как debug-assets). Путь к тестовой БД абсолютный — иначе Room на Windows падает.

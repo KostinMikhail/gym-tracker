@@ -18,8 +18,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         SlotOptionEntity::class,
         WorkoutSessionEntity::class,
         SessionEntryEntity::class,
+        SyncOpEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -27,6 +28,7 @@ abstract class GymDatabase : RoomDatabase() {
     abstract fun exerciseDao(): ExerciseDao
     abstract fun templateDao(): TemplateDao
     abstract fun sessionDao(): SessionDao
+    abstract fun syncDao(): SyncDao
 
     companion object {
         const val NAME = "gym.db"
@@ -35,7 +37,7 @@ abstract class GymDatabase : RoomDatabase() {
          * Все миграции схемы. При КАЖДОМ изменении схемы: version + 1, новая Migration здесь
          * и тест в MigrationTest. Деструктивные миграции запрещены.
          */
-        val MIGRATIONS: Array<Migration> = arrayOf()
+        val MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_1_2)
 
         fun build(context: Context, inMemory: Boolean = false): GymDatabase {
             val builder = if (inMemory) {

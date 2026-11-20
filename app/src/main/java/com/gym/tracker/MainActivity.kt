@@ -13,7 +13,9 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.graphics.drawable.toDrawable
+import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.gym.tracker.sync.SyncWorker
 import com.gym.tracker.ui.GymApp
 import com.gym.tracker.ui.theme.GymTheme
 import com.gym.tracker.ui.theme.GymThemeId
@@ -34,7 +36,10 @@ class MainActivity : ComponentActivity() {
         applySystemBars(initialTheme)
         super.onCreate(savedInstanceState)
         if (savedInstanceState == null) handleOpenTimer(intent)
-        val timer = (application as GymApplication).timerController
+        val app = application as GymApplication
+        val timer = app.timerController
+        // Если в очереди выгрузки в таблицу что-то осталось (например, записано без интернета) — отправить.
+        lifecycleScope.launch { if (app.repository.outboxCount() > 0) SyncWorker.schedule(app) }
         setContent {
             val themeId by prefs.theme.collectAsStateWithLifecycle(initialValue = initialTheme)
             val scope = rememberCoroutineScope()
