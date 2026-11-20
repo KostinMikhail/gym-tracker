@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.outlined.Palette
-import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -168,26 +167,6 @@ fun ThemeButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
                 )
             }
         }
-    }
-}
-
-/** Квадратная кнопка «Настройки» (44 dp) — в том же стиле, что и кнопка темы. */
-@Composable
-fun SettingsButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val b = LocalGymTokens.current.themeButton
-    val description = stringResource(R.string.settings_button_description)
-    Surface(
-        onClick = onClick,
-        shape = b.shape,
-        color = b.container,
-        contentColor = b.iconColor,
-        border = b.border?.let { BorderStroke(1.5.dp, it) },
-        modifier = modifier
-            .size(44.dp)
-            .neonGlow(b.glow, b.shape)
-            .semantics { this.contentDescription = description },
-    ) {
-        Box(contentAlignment = Alignment.Center) { Icon(Icons.Outlined.Settings, contentDescription = null) }
     }
 }
 

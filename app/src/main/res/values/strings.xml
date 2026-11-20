@@ -63,32 +63,4 @@
     <string name="timer_notification_rest">Отдых · далее %1$d / %2$d</string>
     <string name="timer_notification_paused">Пауза · %1$s</string>
     <string name="timer_notification_remaining">Осталось %1$s</string>
-
-    <!-- Настройки и синхронизация с Google Таблицей -->
-    <string name="settings_title">Настройки</string>
-    <string name="settings_button_description">Настройки</string>
-    <string name="back">Назад</string>
-    <string name="sync_section">Синхронизация с Google Таблицей</string>
-    <string name="sync_hint">Каждое записанное упражнение копируется строкой в лист «Журнал» вашей таблицы. Без ссылки и токена синхронизация выключена. Как настроить — в README.</string>
-    <string name="sync_url">Ссылка на скрипт</string>
-    <string name="sync_url_placeholder">https://script.google.com/macros/s/…/exec</string>
-    <string name="sync_token">Токен</string>
-    <string name="sync_token_show">Показать токен</string>
-    <string name="sync_token_hide">Скрыть токен</string>
-    <string name="sync_check">Проверить связь</string>
-    <string name="sync_checking">Проверяю…</string>
-    <string name="sync_connected">Подключено ✓</string>
-    <string name="sync_status">Последняя синхронизация: %1$s · в очереди: %2$d</string>
-    <string name="sync_never">ещё не было</string>
-    <string name="sync_disabled">Синхронизация выключена — укажите ссылку и токен.</string>
-    <string name="sync_last_error">Последняя ошибка: %1$s</string>
-    <string name="sync_export">Выгрузить всю историю</string>
-    <string name="sync_exporting">Ставлю в очередь…</string>
-    <string name="sync_export_done">В очередь поставлено записей: %1$d. Отправка идёт в фоне — следите за счётчиком очереди.</string>
-    <string name="sync_export_empty">Записей пока нет.</string>
-    <string name="sync_error_network">нет интернета или сервер Google недоступен</string>
-    <string name="sync_error_unauthorized">неверный токен — он должен совпадать со свойством TOKEN в скрипте</string>
-    <string name="sync_error_bad_url">ссылка не ведёт на скрипт — проверьте адрес (…/exec) и доступ «Все» при развёртывании</string>
-    <string name="sync_error_script">ошибка скрипта: %1$s</string>
-    <string name="sync_error_not_applied">скрипт подтвердил не все строки, повторю позже</string>
 </resources>

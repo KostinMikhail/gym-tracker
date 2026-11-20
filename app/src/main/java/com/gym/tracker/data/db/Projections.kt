@@ -45,18 +45,3 @@ data class ExerciseHistoryRow(
     val date: LocalDate,
     val templateName: String?,
 )
-
-/** Строка для Google Таблицы: запись с денормализованными названиями (на момент отправки). */
-data class SheetRowSource(
-    val entryId: String,
-    val sessionId: String,
-    val date: LocalDate,
-    val templateName: String?,
-    val slotName: String?,
-    val exerciseName: String,
-    val sets: Int,
-    val reps: Int,
-    val weightKg: Double,
-    val feel: Feel,
-    val updatedAt: Long,
-)
