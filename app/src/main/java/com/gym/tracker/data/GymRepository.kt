@@ -20,6 +20,8 @@ class GymRepository(
     private val db: GymDatabase,
     private val clock: () -> Long = System::currentTimeMillis,
     private val newId: () -> String = { UUID.randomUUID().toString() },
+    /** Вызывается после изменений, влияющих на журнал (резервная копия в GitHub). */
+    private val onHistoryChanged: () -> Unit = {},
 ) {
     private val exerciseDao = db.exerciseDao()
     private val templateDao = db.templateDao()
@@ -72,7 +74,10 @@ class GymRepository(
 
     suspend fun getSession(id: String) = sessionDao.getSession(id)
     fun observeSession(id: String) = sessionDao.observeSession(id)
-    suspend fun updateSessionDate(id: String, date: LocalDate) = sessionDao.updateDate(id, date, clock())
+    suspend fun updateSessionDate(id: String, date: LocalDate) {
+        sessionDao.updateDate(id, date, clock())
+        onHistoryChanged()
+    }
 
     enum class FinishResult { FINISHED, EMPTY }
 
@@ -80,11 +85,15 @@ class GymRepository(
     suspend fun finishSession(id: String): FinishResult {
         if (sessionDao.countEntries(id) == 0) return FinishResult.EMPTY
         sessionDao.finish(id, clock())
+        onHistoryChanged()
         return FinishResult.FINISHED
     }
 
     /** Помечает тренировку завершённой без проверок (пользователь решил оставить пустую). */
-    suspend fun markFinished(id: String) = sessionDao.finish(id, clock())
+    suspend fun markFinished(id: String) {
+        sessionDao.finish(id, clock())
+        onHistoryChanged()
+    }
 
     /** Удаляет пустую тренировку. Тренировку с записями не трогает. Возвращает true, если удалила. */
     suspend fun discardIfEmpty(id: String): Boolean = db.withTransaction {
@@ -95,7 +104,10 @@ class GymRepository(
         }
     }
 
-    suspend fun deleteSession(id: String) = sessionDao.deleteSession(id)
+    suspend fun deleteSession(id: String) {
+        sessionDao.deleteSession(id)
+        onHistoryChanged()
+    }
     fun observeSessionSummaries() = sessionDao.observeSessionSummaries()
     fun observeSessionSummary(id: String) = sessionDao.observeSessionSummary(id)
     fun observeEntryDetails(sessionId: String) = sessionDao.observeEntryDetails(sessionId)
@@ -132,11 +144,18 @@ class GymRepository(
             updatedAt = now,
         )
         sessionDao.upsertEntry(entry)
+        onHistoryChanged()
         return entry.id
     }
 
     suspend fun getEntry(id: String) = sessionDao.getEntry(id)
-    suspend fun deleteEntry(id: String) = sessionDao.deleteEntry(id)
+    suspend fun deleteEntry(id: String) {
+        sessionDao.deleteEntry(id)
+        onHistoryChanged()
+    }
+
+    /** Вся история с текущими названиями — для history.csv. */
+    suspend fun historyRows() = sessionDao.getHistoryRows()
 
     // ---- Упражнения ----
     fun observeExercises() = exerciseDao.observeAll()
@@ -149,7 +168,7 @@ class GymRepository(
     suspend fun updateExercise(id: String, name: String, sets: Int, reps: Int): UpdateResult {
         val clean = cleanName(name)
         if (clean.isEmpty() || sets < 1 || reps < 1) return UpdateResult.INVALID
-        return db.withTransaction {
+        val result = db.withTransaction {
             val other = findExerciseByName(clean)
             if (other != null && other.id != id) {
                 UpdateResult.NAME_TAKEN
@@ -158,5 +177,7 @@ class GymRepository(
                 UpdateResult.OK
             }
         }
+        if (result == UpdateResult.OK) onHistoryChanged()
+        return result
     }
 }

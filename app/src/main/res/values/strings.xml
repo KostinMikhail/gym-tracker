@@ -63,4 +63,39 @@
     <string name="timer_notification_rest">Отдых · далее %1$d / %2$d</string>
     <string name="timer_notification_paused">Пауза · %1$s</string>
     <string name="timer_notification_remaining">Осталось %1$s</string>
+
+    <!-- Настройки: резервная копия в GitHub и экспорт CSV -->
+    <string name="settings_title">Настройки</string>
+    <string name="settings_button_description">Настройки</string>
+    <string name="back">Назад</string>
+    <string name="backup_section">Резервная копия в GitHub</string>
+    <string name="backup_hint">После каждого изменения тренировок приложение записывает весь журнал в файл history.csv вашего приватного репозитория. Пока репозиторий и токен не указаны, копия выключена. Как получить токен — в README приложения.</string>
+    <string name="backup_repo">Репозиторий</string>
+    <string name="backup_token">Токен доступа</string>
+    <string name="backup_token_show">Показать токен</string>
+    <string name="backup_token_hide">Скрыть токен</string>
+    <string name="backup_check">Проверить связь</string>
+    <string name="backup_checking">Проверяю…</string>
+    <string name="backup_connected">Подключено ✓</string>
+    <string name="backup_token_expires">Токен действует до %1$s</string>
+    <string name="backup_disabled">Резервная копия выключена — укажите репозиторий и токен.</string>
+    <string name="backup_status">Последняя выгрузка: %1$s · записей: %2$d</string>
+    <string name="backup_never">Выгрузок ещё не было</string>
+    <string name="backup_last_error">Последняя ошибка: %1$s</string>
+    <string name="backup_upload">Выгрузить сейчас</string>
+    <string name="backup_uploading">Выгружаю…</string>
+    <string name="backup_uploaded">Выгружено ✓</string>
+    <string name="backup_unchanged">Изменений нет — в репозитории актуальная копия.</string>
+    <string name="backup_error_network">нет интернета</string>
+    <string name="backup_error_server">GitHub временно недоступен, повторю позже</string>
+    <string name="backup_error_bad_token">неверный токен — скопируйте его заново целиком</string>
+    <string name="backup_error_expired">срок действия токена истёк — создайте новый и вставьте сюда</string>
+    <string name="backup_error_no_access">нет доступа к репозиторию — проверьте название и что токену выдан доступ к нему</string>
+    <string name="backup_error_no_write">токен не может записывать — нужно право Contents: Read and write</string>
+    <string name="backup_error_bad_repo">репозиторий указывается как владелец/имя</string>
+    <string name="backup_error_conflict">файл в репозитории изменился во время выгрузки, повторю позже</string>
+    <string name="export_section">Экспорт</string>
+    <string name="export_hint">Тот же журнал файлом CSV — отправить в мессенджер, на почту или сохранить.</string>
+    <string name="export_share">Поделиться историей (CSV)</string>
+    <string name="export_share_title">Журнал тренировок</string>
 </resources>

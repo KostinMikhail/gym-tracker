@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
@@ -20,6 +21,7 @@ import androidx.compose.ui.tooling.preview.PreviewParameter
 import com.gym.tracker.R
 import com.gym.tracker.data.db.WorkoutTemplateEntity
 import com.gym.tracker.ui.components.GymCard
+import com.gym.tracker.ui.components.SettingsButton
 import com.gym.tracker.ui.components.ThemeButton
 import com.gym.tracker.ui.theme.CardRole
 import com.gym.tracker.ui.theme.GymBackground
@@ -100,6 +102,7 @@ fun HomeScreen(
     onThemeSelected: (GymThemeId) -> Unit,
     onStartWorkout: (String) -> Unit,
     onOpenSession: (String) -> Unit,
+    onOpenSettings: () -> Unit,
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     val started by vm.startedSessionId.collectAsStateWithLifecycle()
@@ -118,6 +121,7 @@ fun HomeScreen(
         onThemeSelected = onThemeSelected,
         onStartTemplate = vm::start,
         onOpenSession = onOpenSession,
+        onOpenSettings = onOpenSettings,
     )
 }
 
@@ -131,6 +135,7 @@ fun HomeContent(
     onThemeSelected: (GymThemeId) -> Unit,
     onStartTemplate: (String) -> Unit,
     onOpenSession: (String) -> Unit,
+    onOpenSettings: () -> Unit = {},
     today: LocalDate = LocalDate.now(),
 ) {
     var showSheet by rememberSaveable { mutableStateOf(false) }
@@ -139,7 +144,7 @@ fun HomeContent(
     val todayText = Format.weekdayDate(today)
 
     Column(Modifier.fillMaxSize().padding(contentPadding)) {
-        // Шапка: слева — кнопка темы, справа — сегодняшняя дата.
+        // Шапка: слева — кнопка темы, справа — сегодняшняя дата и кнопка настроек.
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -150,6 +155,8 @@ fun HomeContent(
             ThemeButton(onClick = { showThemePicker = true })
             Spacer(Modifier.weight(1f))
             Text(todayText, style = MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.width(12.dp))
+            SettingsButton(onClick = onOpenSettings)
         }
         HeaderDecor(hudText = stringResource(R.string.hud_strip, todayText))
         LazyColumn(

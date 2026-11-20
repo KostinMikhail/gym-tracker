@@ -45,3 +45,21 @@ data class ExerciseHistoryRow(
     val date: LocalDate,
     val templateName: String?,
 )
+
+/** Строка полной истории для резервной копии (history.csv). Только чтение — схему БД не меняет. */
+data class HistoryRow(
+    val date: LocalDate,
+    val workout: String?,
+    val slot: String?,
+    val exercise: String,
+    val sets: Int,
+    val reps: Int,
+    val weightKg: Double,
+    val feel: Feel,
+    val sessionId: String,
+    val entryId: String,
+    /** Ключи сортировки: тренировки одного дня — по времени создания, записи — по порядку слота. */
+    val sessionCreatedAt: Long,
+    val slotOrder: Int?,
+    val entryCreatedAt: Long,
+)

@@ -14,6 +14,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.graphics.drawable.toDrawable
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.gym.tracker.backup.BackupWorker
 import com.gym.tracker.ui.GymApp
 import com.gym.tracker.ui.theme.GymTheme
 import com.gym.tracker.ui.theme.GymThemeId
@@ -33,7 +34,11 @@ class MainActivity : ComponentActivity() {
         val initialTheme = runBlocking { prefs.theme.first() }
         applySystemBars(initialTheme)
         super.onCreate(savedInstanceState)
-        if (savedInstanceState == null) handleOpenTimer(intent)
+        if (savedInstanceState == null) {
+            handleOpenTimer(intent)
+            // Выгрузить то, что не ушло раньше (например, записано без интернета). Без настроек — ничего не делает.
+            BackupWorker.schedule(application)
+        }
         val timer = (application as GymApplication).timerController
         setContent {
             val themeId by prefs.theme.collectAsStateWithLifecycle(initialValue = initialTheme)

@@ -157,6 +157,23 @@ interface SessionDao {
     )
     fun observeEntryDetails(sessionId: String): Flow<List<EntryDetails>>
 
+    /** Вся история с текущими названиями — для резервной копии (порядок окончательно задаёт HistoryCsvExporter). */
+    @Query(
+        """
+        SELECT s.date AS date, t.name AS workout, sl.name AS slot, x.name AS exercise,
+               e.sets AS sets, e.reps AS reps, e.weightKg AS weightKg, e.feel AS feel,
+               s.id AS sessionId, e.id AS entryId, s.createdAt AS sessionCreatedAt,
+               sl.sortOrder AS slotOrder, e.createdAt AS entryCreatedAt
+        FROM session_entries e
+        JOIN workout_sessions s ON s.id = e.sessionId
+        JOIN exercises x ON x.id = e.exerciseId
+        LEFT JOIN workout_templates t ON t.id = s.templateId
+        LEFT JOIN template_slots sl ON sl.id = e.slotId
+        ORDER BY s.date, s.createdAt, s.id, COALESCE(sl.sortOrder, 1000000), e.createdAt
+        """,
+    )
+    suspend fun getHistoryRows(): List<HistoryRow>
+
     /**
      * Последняя запись упражнения в любой тренировке (по любому шаблону), кроме [excludeSessionId].
      * Сортировка: по дате тренировки, затем по времени создания записи.

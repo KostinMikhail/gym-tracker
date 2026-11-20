@@ -29,13 +29,16 @@ Single-activity, Jetpack Compose + Material 3, Navigation Compose (строко�
 
 ```
 com.gym.tracker
-├── GymApplication        — ручной DI: GymDatabase + GymRepository + один DataStore «settings» (ThemePreferences, TimerPreferences) + TimerController (lazy)
+├── GymApplication        — ручной DI: GymDatabase + GymRepository(onHistoryChanged → BackupWorker) + один DataStore «settings»
+│                           (ThemePreferences, TimerPreferences, BackupPreferences) + TimerController + GitHubBackup (lazy)
 ├── MainActivity          — читает тему до первого кадра, системные панели по теме, GymTheme(themeId) { GymApp() };
 │                           EXTRA_OPEN_TIMER из уведомления таймера → вкладка «Таймер». Только портретная ориентация.
+│                           При старте ставит BackupWorker (выгрузить несделанное).
 ├── data
 │   ├── GymRepository     — единственная точка доступа UI к данным (транзакции, бизнес-правила записи)
 │   ├── ThemePreferences  — выбранная тема в DataStore (Preferences), не в Room
 │   ├── TimerPreferences  — последние настройки таймера (раунды/раунд/отдых) и флаг «разрешение уведомлений спрашивали»
+│   ├── BackupPreferences — репозиторий GitHub, токен (только шифротекст, TokenCipher), SHA-256 последнего снимка, статус/ошибка
 │   └── db
 │       ├── Entities.kt   — сущности + enum Feel
 │       ├── Projections.kt— POJO для JOIN-запросов
@@ -47,7 +50,13 @@ com.gym.tracker
 ├── domain
 │   ├── WorkoutLogic.kt   — prefillFor, roundWeight, normalizeName, suggestTemplateId
 │   ├── Format.kt         — даты dd.MM / dd.MM.yyyy, вес («без веса» для 0), «3×12 · 45 кг · Норм»
+│   ├── backup/           — HistoryCsvExporter: history.csv из HistoryRow (чистый Kotlin; RFC 4180, вес с точкой), sha256, gitBlobSha
 │   └── timer/            — IntervalTimer (чистая машина состояний таймера, часы внедряются), TimerConfig, TimerFormat
+├── backup
+│   ├── GitHubClient      — OkHttp + kotlinx.serialization, Contents API: GET sha → PUT (409/422 → один повтор), проверка доступа (permissions.push); GitHubError.Kind
+│   ├── GitHubBackup      — снимок → выгрузка; без изменений (хеш) — без коммита; «Выгрузить сейчас» сверяет файл в репозитории (git blob sha); Mutex
+│   ├── BackupWorker      — WorkManager unique «github-backup», REPLACE, задержка 30 с (дебаунс), CONNECTED, экспоненциальный backoff
+│   └── TokenCipher       — KeystoreTokenCipher: AES-256-GCM, ключ в Android Keystore
 ├── timer
 │   ├── TimerController   — один таймер на процесс: StateFlow<TimerSnapshot?> (null = настройки) + поток сигналов; цикл в MainScope
 │   ├── TimerService      — foreground-сервис (specialUse): уведомление с Пауза/Продолжить, wake lock, звук; стоп при сбросе/после «Готово»
@@ -63,6 +72,8 @@ com.gym.tracker
     ├── workout/          — WorkoutScreen/WorkoutViewModel: карточки слотов, черновики в SavedStateHandle
     ├── history/          — HistoryScreen (по датам / по упражнениям), SessionDetailScreen (+ итоги), ExerciseHistoryScreen (график Canvas + таблица + рекорд)
     ├── exercises/        — ExercisesScreen: список, редактирование названия/подходов/повторов
+    ├── settings/         — SettingsScreen/SettingsViewModel (шестерёнка на главной): «Резервная копия в GitHub», «Экспорт»;
+    │                       CsvShare — CSV в cache/exports → FileProvider (${applicationId}.files) → «Поделиться»
     └── timer/            — TimerScreen (настройки / ход / пауза / «Готово»), TimerViewModel, TabularText (цифры в ячейках фикс. ширины)
 ```
 
@@ -79,7 +90,7 @@ com.gym.tracker
 
 ### Навигация
 
-`home`, `history`, `exercises`, `timer` (вкладки) → `workout/{sessionId}`, `session/{sessionId}?summary={bool}`, `exercise/{exerciseId}`.
+`home`, `history`, `exercises`, `timer` (вкладки) → `settings`, `workout/{sessionId}`, `session/{sessionId}?summary={bool}`, `exercise/{exerciseId}`.
 Тренировка создаётся при старте (строка в `workout_sessions`), каждая «Готово» сразу пишет `session_entries`. «Продолжить тренировку» нет. «Завершить» → `finishedAt` и экран итогов; пустую тренировку предлагается удалить.
 
 ### Ключевые правила поведения
@@ -89,6 +100,10 @@ com.gym.tracker
 - Звёздочка делает вариант избранным для слота (сохраняется сразу, влияет на будущие тренировки) и выбирает его.
 - Добавление варианта в слот переиспользует существующее упражнение с тем же названием (без учёта регистра/пробелов).
 - Редактор шаблонов/слотов пока не реализован (отдельная задача).
+- Резервная копия: односторонняя (Room → `history.csv` в приватном `KostinMikhail/gym-data`), полный снимок, схему БД не трогает.
+  `onHistoryChanged` репозитория вызывается после записи/правки/удаления записи, смены даты, завершения/удаления тренировки,
+  переименования упражнения (новое изменение журнала — добавить вызов). Токен (fine-grained PAT, Contents: Read and write)
+  не логировать, хранить только через TokenCipher. Без репозитория/токена всё выключено.
 - Таймер: подготовка 5 с → раунд (1 гонг) → «10 секунд» (3 стука + предупреждение, только если раунд > 10 с) → отдых (2 гонга; при отдыхе 0 — сразу 1 гонг) → … → 3 гонга и «Готово». Время — только по дедлайнам SystemClock.elapsedRealtime (следующая фаза от дедлайна предыдущей, без дрейфа). Пока таймер идёт/на паузе: нижней панели нет, экран не гаснет; Back — сразу остановить таймер и выйти (без вопроса). Фаза и номер раунда — одной строкой наверху, полосы прогресса нет. «Сбросить всё» — обычным нажатием. Смерть процесса = таймер сброшен (настройки в DataStore). Гонг — запись «Boxing Bell» (Universfield, Pixabay), 5 с, готовит `tools/prepare_bell.py`; стук синтезирует `tools/gen_timer_sounds.py`. Источники — `licenses/README.md`.
 - Экран тренировки: шапка уезжает при прокрутке вниз (enterAlways) и возвращается при прокрутке вверх; полоса «Фулбади Б · N / M» закреплена; нижняя панель навигации видна и на тренировке и прячется при прокрутке вниз (только там). Вкладка «Тренировка» на этом экране — текущая.
 
@@ -109,4 +124,6 @@ com.gym.tracker
 - `data/RepositoryTest` — DAO и репозиторий на in-memory Room с сидом.
 - `data/ThemePreferencesTest` — сохранение темы и откат к Классической; `ThemeContrastTest` — контраст всех тем; `ProgressTest` — счётчик «N / M» и дата шапки.
 - `IntervalTimerTest` (последовательность, 10 с, отдых 0, 1 раунд, пауза, «Раунд заново», без дрейфа за 60 мин), `TimerControllerTest` (виртуальное время), `TimerThemeTest` (контраст и различимость состояний таймера), `data/TimerPreferencesTest`.
+- `backup/HistoryCsvExporterTest`, `GitHubClientTest` (MockWebServer: создание/обновление, 409 → повтор, коды ошибок), `GitHubBackupTest`
+  (пропуск без изменений, сверка с репозиторием, ошибки, токен только зашифрован), `data/HistoryBackupRepositoryTest` (снимок из БД, сигналы изменений).
 - `data/MigrationTest` — `MigrationTestHelper` по схемам из `app/schemas` (подключены как debug-assets). Путь к тестовой БД абсолютный — иначе Room на Windows падает.
